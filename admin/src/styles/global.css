@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:     #0f1117;
+  --ink2:    #1e2330;
+  --ink3:    #2d3346;
+  --slate:   #64748b;
+  --muted:   #94a3b8;
+  --border:  #e8ecf0;
+  --bg:      #f4f6f9;
+  --surface: #ffffff;
+  --blue:        #1d4ed8;
+  --blue-light:  #eff6ff;
+  --blue-mid:    #bfdbfe;
+  --red:         #dc2626;
+  --red-light:   #fef2f2;
+  --amber:       #d97706;
+  --amber-light: #fffbeb;
+  --green:       #16a34a;
+  --green-light: #f0fdf4;
+  --radius:    10px;
+  --radius-lg: 14px;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select { font-family: 'DM Sans', sans-serif; }
+button { cursor: pointer; border: none; background: none; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
