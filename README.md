@@ -10,7 +10,7 @@ This workspace contains three separate apps:
 
 ```bash
 git clone https://github.com/ynaamante/vetinel
-cd VENTINEL-POWPOW
+cd vetinel
 ```
 
 If you already have the repo locally, just open the root folder in VS Code.
