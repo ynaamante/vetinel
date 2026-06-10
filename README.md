@@ -9,7 +9,7 @@ This workspace contains three separate apps:
 ## Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/ynaamante/vetinel
 cd VENTINEL-POWPOW
 ```
 
