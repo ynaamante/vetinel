@@ -1,0 +1,56 @@
+# Dependencies
+**/node_modules/
+
+# Build outputs
+**/dist/
+**/build/
+**/web-build/
+**/.vite/
+**/.cache/
+
+# Expo / React Native
+**/.expo/
+**/.expo-shared/
+**/.metro-cache/
+**/android/
+**/ios/
+**/Pods/
+**/.gradle/
+**/local.properties
+**/*.keystore
+**/*.jks
+**/GoogleService-Info.plist
+**/google-services.json
+
+# Environment files
+**/.env
+**/.env.*
+**/.env.local
+**/.env.*.local
+
+# Logs
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.iml
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Coverage
+**/coverage/
+**/.nyc_output/
