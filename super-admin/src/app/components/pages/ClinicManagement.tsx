@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Link } from 'react-router';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import {
   Search,
   Filter,
@@ -19,6 +20,7 @@ import {
   Mail,
   Phone,
   MapPin,
+  Plus,
 } from 'lucide-react';
 
 const statusColors = {
@@ -41,29 +43,55 @@ export type ClinicRecord = {
   status: 'active' | 'pending' | 'suspended';
 };
 
-const clinicsData: ClinicRecord[] = [
-  { id: 1, name: 'Happy Paws Veterinary Clinic', owner: 'Dr. Michael Chen', email: 'michael.chen@happypaws.com', phone: '+1 (555) 123-4567', address: '123 Main Street, San Francisco, CA 94102', registrationDate: '2024-01-15', doctors: 8, receptionists: 4, totalStaff: 12, status: 'active' as const },
-  { id: 2, name: 'PetCare Animal Hospital', owner: 'Dr. Sarah Johnson', email: 'sarah.johnson@petcare.com', phone: '+1 (555) 234-5678', address: '456 Oak Avenue, Los Angeles, CA 90001', registrationDate: '2024-03-22', doctors: 12, receptionists: 6, totalStaff: 18, status: 'active' as const },
-  { id: 3, name: 'Sunrise Veterinary Services', owner: 'Dr. James Rodriguez', email: 'james.rodriguez@sunrise.com', phone: '+1 (555) 345-6789', address: '789 Elm Street, San Diego, CA 92101', registrationDate: '2024-05-10', doctors: 5, receptionists: 2, totalStaff: 7, status: 'pending' as const },
-  { id: 4, name: 'Companion Animal Clinic', owner: 'Dr. Emily Watson', email: 'emily.watson@companion.com', phone: '+1 (555) 456-7890', address: '321 Pine Road, Sacramento, CA 95814', registrationDate: '2023-11-08', doctors: 10, receptionists: 5, totalStaff: 15, status: 'active' as const },
-  { id: 5, name: 'Sunset Veterinary Clinic', owner: 'Dr. Robert Kim', email: 'robert.kim@sunset.com', phone: '+1 (555) 567-8901', address: '654 Cedar Lane, San Jose, CA 95101', registrationDate: '2023-08-19', doctors: 6, receptionists: 3, totalStaff: 9, status: 'suspended' as const },
-  { id: 6, name: 'Animal Care Center', owner: 'Dr. Lisa Anderson', email: 'lisa.anderson@animalcare.com', phone: '+1 (555) 678-9012', address: '987 Maple Drive, Fresno, CA 93701', registrationDate: '2024-04-05', doctors: 7, receptionists: 3, totalStaff: 10, status: 'active' as const },
-  { id: 7, name: 'City Pet Hospital', owner: 'Dr. David Lee', email: 'david.lee@citypet.com', phone: '+1 (555) 789-0123', address: '147 Birch Blvd, Long Beach, CA 90802', registrationDate: '2024-05-28', doctors: 4, receptionists: 2, totalStaff: 6, status: 'pending' as const },
-  { id: 8, name: 'Healing Paws Veterinary', owner: 'Dr. Maria Garcia', email: 'maria.garcia@healingpaws.com', phone: '+1 (555) 890-1234', address: '258 Walnut St, Oakland, CA 94601', registrationDate: '2024-02-14', doctors: 9, receptionists: 5, totalStaff: 14, status: 'active' as const },
-];
+// TODO: Fetch from /api/clinics
+const clinicsData: ClinicRecord[] = [];
 
 export function ClinicManagement() {
   const [activeTab, setActiveTab] = useState<'overview' | 'detailed'>('overview');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showActionMenu, setShowActionMenu] = useState<number | null>(null);
+  const [actionAnchorRect, setActionAnchorRect] = useState<DOMRect | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState<number | null>(null);
-  const [clinics, setClinics] = useState<ClinicRecord[]>(clinicsData);
+  const [clinics, setClinics] = useState<ClinicRecord[]>([]);
   const [editingClinic, setEditingClinic] = useState<ClinicRecord | null>(null);
   const [editForm, setEditForm] = useState({ name: '', owner: '', email: '', phone: '', address: '' });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createClinicForm, setCreateClinicForm] = useState({ name: '', email: '', phone: '', address: '', timezone: 'UTC' });
   const [toast, setToast] = useState<string | null>(null);
+
+  // Fetch clinics from API on mount
+  useEffect(() => {
+    const fetchClinics = async () => {
+      try {
+        const response = await fetch('/api/clinics');
+        if (!response.ok) throw new Error('Failed to fetch clinics');
+        const data = await response.json();
+        // Map database clinics to component ClinicRecord type
+        setClinics(data.map((clinic: any) => ({
+          id: clinic.id,
+          name: clinic.name,
+          owner: 'Unknown', // Fetch from clinic owner relationship if available
+          email: clinic.email,
+          phone: clinic.phone,
+          address: clinic.address,
+          registrationDate: new Date(clinic.created_at).toLocaleDateString(),
+          doctors: 0, // Fetch from database
+          receptionists: 0, // Fetch from database
+          totalStaff: 0, // Fetch from database
+          status: 'active' as const // Map from database status if available
+        })));
+      } catch (error) {
+        console.error('Failed to fetch clinics:', error);
+        setToast('Failed to load clinics');
+        setTimeout(() => setToast(null), 3000);
+      }
+    };
+
+    fetchClinics();
+  }, []);
 
   function openEditModal(clinic: ClinicRecord) {
     setEditForm({ name: clinic.name, owner: clinic.owner, email: clinic.email ?? '', phone: clinic.phone ?? '', address: clinic.address ?? '' });
@@ -107,6 +135,63 @@ export function ClinicManagement() {
     // Show success notification
   };
 
+  async function handleCreateClinic() {
+    if (!createClinicForm.name.trim()) {
+      setToast('Clinic name is required');
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await fetch('/api/clinics', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(createClinicForm),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setToast(errorData.error || 'Failed to add clinic');
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+
+      const newClinic = await response.json();
+      setClinics(prev => [
+        {
+          id: newClinic.id,
+          name: newClinic.name,
+          owner: 'Unknown',
+          email: newClinic.email,
+          phone: newClinic.phone,
+          address: newClinic.address,
+          registrationDate: new Date(newClinic.created_at).toLocaleDateString(),
+          doctors: 0,
+          receptionists: 0,
+          totalStaff: 0,
+          status: 'active',
+        },
+        ...prev,
+      ]);
+      setCreateClinicForm({ name: '', email: '', phone: '', address: '', timezone: 'UTC' });
+      setShowCreateModal(false);
+      setToast('Clinic added successfully');
+      setTimeout(() => setToast(null), 3000);
+    } catch (error) {
+      console.error('Failed to create clinic:', error);
+      setToast('Failed to add clinic');
+      setTimeout(() => setToast(null), 3000);
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -115,14 +200,20 @@ export function ClinicManagement() {
           <h1 className="text-2xl font-semibold text-gray-900">
             Clinic Management
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {clinicsData.length} clinics registered in VetIntel
-          </p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-          <Download className="w-4 h-4" />
-          Export Report
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Add Clinic
+          </button>
+          <button className="px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2 text-sm">
+            <Download className="w-4 h-4" />
+            Export Report
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -245,7 +336,7 @@ export function ClinicManagement() {
           </div>
 
           {/* Clinics Overview Table */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-lg border border-gray-200 overflow-visible">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
@@ -377,7 +468,7 @@ export function ClinicManagement() {
       </div>
 
       {/* Clinics Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-visible">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -449,69 +540,82 @@ export function ClinicManagement() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="relative">
-                      <button
-                        onClick={() =>
-                          setShowActionMenu(
-                            showActionMenu === clinic.id ? null : clinic.id
-                          )
-                        }
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                      {showActionMenu === clinic.id && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-                          <Link
-                            to={`/clinics/${clinic.id}`}
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            onClick={() => setShowActionMenu(null)}
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            const btn = e.currentTarget as HTMLElement;
+                            const rect = btn.getBoundingClientRect();
+                            setActionAnchorRect(rect);
+                            setShowActionMenu(showActionMenu === clinic.id ? null : clinic.id);
+                          }}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                        {showActionMenu === clinic.id && actionAnchorRect && createPortal(
+                          <div
+                            style={{
+                              position: 'fixed',
+                              top: actionAnchorRect.bottom + 8 + window.scrollY,
+                              left: Math.min(actionAnchorRect.right - 200, window.innerWidth - 220),
+                              width: 192,
+                              zIndex: 9999,
+                            }}
                           >
-                            <Eye className="w-4 h-4" />
-                            View Details
-                          </Link>
-                          {clinic.status === 'pending' && (
-                            <button
-                              onClick={() => {
-                                setSelectedClinic(clinic.id);
-                                setShowApproveModal(true);
-                                setShowActionMenu(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            >
-                              <CheckSquare className="w-4 h-4" />
-                              Approve Clinic
-                            </button>
-                          )}
-                          {clinic.status === 'active' && (
-                            <button
-                              onClick={() => {
-                                setSelectedClinic(clinic.id);
-                                setShowSuspendModal(true);
-                                setShowActionMenu(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            >
-                              <Pause className="w-4 h-4" />
-                              Suspend Clinic
-                            </button>
-                          )}
-                          {clinic.status === 'suspended' && (
-                            <button className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                              <PlayCircle className="w-4 h-4" />
-                              Reactivate Clinic
-                            </button>
-                          )}
-                          <button
-                            onClick={() => openEditModal(clinic)}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            <Edit className="w-4 h-4" />
-                            Edit Information
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                            <div className="bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                              <Link
+                                to={`/clinics/${clinic.id}`}
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                onClick={() => setShowActionMenu(null)}
+                              >
+                                <Eye className="w-4 h-4" />
+                                View Details
+                              </Link>
+                              {clinic.status === 'pending' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedClinic(clinic.id);
+                                    setShowApproveModal(true);
+                                    setShowActionMenu(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                >
+                                  <CheckSquare className="w-4 h-4" />
+                                  Approve Clinic
+                                </button>
+                              )}
+                              {clinic.status === 'active' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedClinic(clinic.id);
+                                    setShowSuspendModal(true);
+                                    setShowActionMenu(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                >
+                                  <Pause className="w-4 h-4" />
+                                  Suspend Clinic
+                                </button>
+                              )}
+                              {clinic.status === 'suspended' && (
+                                <button className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                  <PlayCircle className="w-4 h-4" />
+                                  Reactivate Clinic
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  openEditModal(clinic);
+                                  setShowActionMenu(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              >
+                                <Edit className="w-4 h-4" />
+                                Edit Information
+                              </button>
+                            </div>
+                          </div>, document.body)}
+                      </div>
                   </td>
                 </tr>
               ))}
@@ -527,6 +631,93 @@ export function ClinicManagement() {
         <div className="fixed top-6 right-6 z-[100] flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white text-sm bg-green-600">
           <CheckCircle className="w-4 h-4" />
           {toast}
+        </div>
+      )}
+
+      {/* Create Clinic Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Plus className="w-5 h-5 text-blue-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">Add New Clinic</h2>
+              </div>
+              <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Clinic Name</label>
+                <input
+                  type="text"
+                  value={createClinicForm.name}
+                  onChange={e => setCreateClinicForm(p => ({ ...p, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Clinic name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={createClinicForm.email}
+                  onChange={e => setCreateClinicForm(p => ({ ...p, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="clinic@example.com"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={createClinicForm.phone}
+                    onChange={e => setCreateClinicForm(p => ({ ...p, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="(123) 456-7890"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+                  <input
+                    type="text"
+                    value={createClinicForm.timezone}
+                    onChange={e => setCreateClinicForm(p => ({ ...p, timezone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="UTC"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <textarea
+                  rows={3}
+                  value={createClinicForm.address}
+                  onChange={e => setCreateClinicForm(p => ({ ...p, address: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="Clinic address"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateClinic}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+              >
+                Save Clinic
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

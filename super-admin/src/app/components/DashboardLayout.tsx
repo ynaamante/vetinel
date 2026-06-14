@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Building2,
@@ -30,48 +30,8 @@ type Notification = {
   read: boolean;
 };
 
-const initialNotifications: Notification[] = [
-  {
-    id: 1,
-    type: 'security',
-    title: 'Failed Login Attempt',
-    message: 'Multiple failed login attempts detected for user john.doe@vetclinic.com',
-    time: '2 min ago',
-    read: false,
-  },
-  {
-    id: 2,
-    type: 'user',
-    title: 'New User Registration',
-    message: 'Dr. Sarah Johnson has registered and is awaiting approval.',
-    time: '15 min ago',
-    read: false,
-  },
-  {
-    id: 3,
-    type: 'alert',
-    title: 'Clinic Subscription Expiring',
-    message: 'PawCare Clinic subscription expires in 3 days. Please renew.',
-    time: '1 hour ago',
-    read: false,
-  },
-  {
-    id: 4,
-    type: 'info',
-    title: 'System Maintenance Scheduled',
-    message: 'Scheduled maintenance on June 5, 2026 from 2:00 AM – 4:00 AM.',
-    time: '3 hours ago',
-    read: true,
-  },
-  {
-    id: 5,
-    type: 'info',
-    title: 'Audit Report Generated',
-    message: 'Monthly audit report for May 2026 is ready for download.',
-    time: '1 day ago',
-    read: true,
-  },
-];
+// TODO: Fetch from /api/notifications or WebSocket for real-time updates
+const initialNotifications: Notification[] = [];
 
 const notificationIcons: Record<Notification['type'], React.ReactNode> = {
   alert: <AlertCircle className="w-5 h-5 text-yellow-500" />,

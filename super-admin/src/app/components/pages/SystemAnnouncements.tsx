@@ -1,52 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Megaphone, Plus, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
-
-const announcements = [
-  {
-    id: 1,
-    title: 'Platform Maintenance Scheduled',
-    message:
-      'The VetIntel platform will undergo scheduled maintenance on June 5, 2026 from 2:00 AM to 4:00 AM PST. During this time, all services will be temporarily unavailable.',
-    targetAudience: 'All Clinics',
-    priority: 'high',
-    status: 'active',
-    createdBy: 'Super Admin',
-    createdAt: '2026-05-25',
-  },
-  {
-    id: 2,
-    title: 'New Feature: Disease Analytics Dashboard',
-    message:
-      'We are excited to announce the launch of our new Disease Analytics Dashboard. This powerful tool provides real-time insights into disease trends across your community.',
-    targetAudience: 'All Clinics',
-    priority: 'medium',
-    status: 'active',
-    createdBy: 'Super Admin',
-    createdAt: '2026-05-20',
-  },
-  {
-    id: 3,
-    title: 'Security Update Required',
-    message:
-      'All clinic owners must update their security settings by May 31, 2026 to comply with new data protection regulations.',
-    targetAudience: 'Clinic Owners',
-    priority: 'high',
-    status: 'active',
-    createdBy: 'Super Admin',
-    createdAt: '2026-05-18',
-  },
-  {
-    id: 4,
-    title: 'Training Webinar: Advanced Reporting',
-    message:
-      'Join us for a complimentary training webinar on June 10, 2026 at 10:00 AM PST to learn about advanced reporting features.',
-    targetAudience: 'All Users',
-    priority: 'low',
-    status: 'draft',
-    createdBy: 'Super Admin',
-    createdAt: '2026-05-15',
-  },
-];
 
 const priorityColors = {
   high: 'bg-red-100 text-red-700',
@@ -55,7 +8,27 @@ const priorityColors = {
 };
 
 export function SystemAnnouncements() {
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/announcements');
+        if (!response.ok) throw new Error('Failed to fetch announcements');
+        const data = await response.json();
+        setAnnouncements(data || []);
+      } catch (error) {
+        console.error('Failed to fetch announcements:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnnouncements();
+  }, []);
 
   return (
     <div className="p-6 space-y-6">

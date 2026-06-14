@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FileText,
   Search,
@@ -14,96 +14,8 @@ import {
   Trash2,
 } from 'lucide-react';
 
-const auditLogs = [
-  {
-    id: 1,
-    action: 'Clinic Approved',
-    user: 'Super Admin',
-    details: 'PetCare Veterinary Hospital approved and activated',
-    clinic: 'PetCare Veterinary Hospital',
-    timestamp: '2026-05-29 10:30 AM',
-    category: 'Clinic Management',
-    severity: 'info',
-    icon: CheckCircle,
-  },
-  {
-    id: 2,
-    action: 'User Created',
-    user: 'Super Admin',
-    details: 'New doctor account created for Dr. Sarah Johnson',
-    clinic: 'Happy Paws Veterinary Clinic',
-    timestamp: '2026-05-29 09:45 AM',
-    category: 'User Management',
-    severity: 'info',
-    icon: Users,
-  },
-  {
-    id: 3,
-    action: 'Role Changed',
-    user: 'Super Admin',
-    details: 'John Doe role changed from Doctor to Clinic Owner',
-    clinic: 'Companion Animal Clinic',
-    timestamp: '2026-05-29 08:15 AM',
-    category: 'Role Management',
-    severity: 'warning',
-    icon: Shield,
-  },
-  {
-    id: 4,
-    action: 'Clinic Suspended',
-    user: 'Super Admin',
-    details: 'Sunset Veterinary Clinic suspended for policy violation',
-    clinic: 'Sunset Veterinary Clinic',
-    timestamp: '2026-05-28 05:30 PM',
-    category: 'Clinic Management',
-    severity: 'error',
-    icon: AlertCircle,
-  },
-  {
-    id: 5,
-    action: 'Permission Updated',
-    user: 'Super Admin',
-    details: 'Doctor role permissions updated for Medical Records',
-    clinic: 'All Clinics',
-    timestamp: '2026-05-28 03:20 PM',
-    category: 'Role Management',
-    severity: 'info',
-    icon: Shield,
-  },
-  {
-    id: 6,
-    action: 'User Disabled',
-    user: 'Super Admin',
-    details: 'Dr. Robert Kim account disabled',
-    clinic: 'Sunset Veterinary Clinic',
-    timestamp: '2026-05-28 02:45 PM',
-    category: 'User Management',
-    severity: 'warning',
-    icon: Users,
-  },
-  {
-    id: 7,
-    action: 'Clinic Registered',
-    user: 'System',
-    details: 'New clinic registration: City Pet Hospital',
-    clinic: 'City Pet Hospital',
-    timestamp: '2026-05-28 11:30 AM',
-    category: 'Clinic Management',
-    severity: 'info',
-    icon: Building2,
-  },
-  {
-    id: 8,
-    action: 'Settings Modified',
-    user: 'Super Admin',
-    details: 'System notification settings updated',
-    clinic: 'Platform',
-    timestamp: '2026-05-27 04:15 PM',
-    category: 'System Settings',
-    severity: 'info',
-    icon: Settings,
-  },
-];
+// TODO: Fetch from /api/audit-trail
+const auditLogs: any[] = [];
 
 const categories = [
   'All Categories',
@@ -120,18 +32,36 @@ const severityColors = {
 };
 
 export function AuditTrail() {
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAuditLogs = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/audit-trail');
+        if (!response.ok) throw new Error('Failed to fetch audit logs');
+        const data = await response.json();
+        setAuditLogs(data || []);
+      } catch (error) {
+        console.error('Failed to fetch audit logs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAuditLogs();
+  }, []);
 
   const filteredLogs = auditLogs.filter((log) => {
     const matchesSearch =
       log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.clinic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.user.toLowerCase().includes(searchQuery.toLowerCase());
+      (log.changes && JSON.stringify(log.changes).toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory =
       selectedCategory === 'All Categories' ||
-      log.category === selectedCategory;
+      log.entity_type === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 

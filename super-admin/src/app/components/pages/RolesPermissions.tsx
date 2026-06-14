@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Shield, Save, X, CheckCircle, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 
 type PermissionType = 'view' | 'create' | 'edit' | 'delete' | 'export';
@@ -14,6 +14,7 @@ interface RolePermissions {
 }
 
 interface Role {
+  id?: number;
   name: string;
   description: string;
   permissions: RolePermissions;
@@ -49,87 +50,12 @@ const featureCategories = {
   ],
 };
 
-const initialRoles: Role[] = [
-  {
-    name: 'Clinic Owner',
-    description: 'Full access to clinic',
-    permissions: {
-      'Intelligence Dashboard': { view: true, create: false, edit: false, delete: false, export: true },
-      'Disease Monitoring': { view: true, create: false, edit: false, delete: false, export: true },
-      'Risk Monitoring': { view: true, create: false, edit: false, delete: false, export: true },
-      'Community Analytics': { view: true, create: false, edit: false, delete: false, export: true },
-      'Reports': { view: true, create: false, edit: false, delete: false, export: true },
-      'Data Sync Status': { view: true, create: false, edit: false, delete: false, export: false },
-      'Clinic Overview': { view: true, create: false, edit: true, delete: false, export: false },
-      'User & Role Management': { view: true, create: true, edit: true, delete: true, export: false },
-      'Financial Monitoring': { view: true, create: false, edit: false, delete: false, export: true },
-      'Audit Trail': { view: true, create: false, edit: false, delete: false, export: true },
-      'Appointment Management': { view: true, create: true, edit: true, delete: true, export: false },
-      'Patient Queue': { view: true, create: false, edit: true, delete: false, export: false },
-      'Billing & Payments': { view: true, create: true, edit: true, delete: false, export: false },
-      'Client Management': { view: true, create: true, edit: true, delete: true, export: false },
-      'Due Dates & Reminders': { view: true, create: true, edit: true, delete: true, export: false },
-      'Pet Profiles': { view: true, create: true, edit: true, delete: false, export: false },
-      'Medical Records': { view: true, create: true, edit: true, delete: false, export: false },
-      'Vaccination Records': { view: true, create: true, edit: true, delete: false, export: false },
-      'Treatment Records': { view: true, create: true, edit: true, delete: false, export: false },
-    },
-  },
-  {
-    name: 'Doctor',
-    description: 'Medical & patient access',
-    permissions: {
-      'Intelligence Dashboard': { view: true, create: false, edit: false, delete: false, export: false },
-      'Disease Monitoring': { view: true, create: false, edit: false, delete: false, export: false },
-      'Risk Monitoring': { view: true, create: false, edit: false, delete: false, export: false },
-      'Community Analytics': { view: false, create: false, edit: false, delete: false, export: false },
-      'Reports': { view: true, create: false, edit: false, delete: false, export: false },
-      'Data Sync Status': { view: false, create: false, edit: false, delete: false, export: false },
-      'Clinic Overview': { view: true, create: false, edit: false, delete: false, export: false },
-      'User & Role Management': { view: false, create: false, edit: false, delete: false, export: false },
-      'Financial Monitoring': { view: false, create: false, edit: false, delete: false, export: false },
-      'Audit Trail': { view: false, create: false, edit: false, delete: false, export: false },
-      'Appointment Management': { view: true, create: true, edit: true, delete: false, export: false },
-      'Patient Queue': { view: true, create: false, edit: true, delete: false, export: false },
-      'Billing & Payments': { view: true, create: false, edit: false, delete: false, export: false },
-      'Client Management': { view: true, create: true, edit: true, delete: false, export: false },
-      'Due Dates & Reminders': { view: true, create: true, edit: true, delete: false, export: false },
-      'Pet Profiles': { view: true, create: true, edit: true, delete: false, export: false },
-      'Medical Records': { view: true, create: true, edit: true, delete: false, export: false },
-      'Vaccination Records': { view: true, create: true, edit: true, delete: false, export: false },
-      'Treatment Records': { view: true, create: true, edit: true, delete: false, export: false },
-    },
-  },
-  {
-    name: 'Receptionist',
-    description: 'Front desk operations',
-    permissions: {
-      'Intelligence Dashboard': { view: false, create: false, edit: false, delete: false, export: false },
-      'Disease Monitoring': { view: false, create: false, edit: false, delete: false, export: false },
-      'Risk Monitoring': { view: false, create: false, edit: false, delete: false, export: false },
-      'Community Analytics': { view: false, create: false, edit: false, delete: false, export: false },
-      'Reports': { view: false, create: false, edit: false, delete: false, export: false },
-      'Data Sync Status': { view: false, create: false, edit: false, delete: false, export: false },
-      'Clinic Overview': { view: true, create: false, edit: false, delete: false, export: false },
-      'User & Role Management': { view: false, create: false, edit: false, delete: false, export: false },
-      'Financial Monitoring': { view: false, create: false, edit: false, delete: false, export: false },
-      'Audit Trail': { view: false, create: false, edit: false, delete: false, export: false },
-      'Appointment Management': { view: true, create: true, edit: true, delete: true, export: false },
-      'Patient Queue': { view: true, create: false, edit: true, delete: false, export: false },
-      'Billing & Payments': { view: true, create: true, edit: true, delete: false, export: false },
-      'Client Management': { view: true, create: true, edit: true, delete: true, export: false },
-      'Due Dates & Reminders': { view: true, create: true, edit: true, delete: true, export: false },
-      'Pet Profiles': { view: true, create: true, edit: false, delete: false, export: false },
-      'Medical Records': { view: true, create: true, edit: false, delete: false, export: false },
-      'Vaccination Records': { view: true, create: true, edit: false, delete: false, export: false },
-      'Treatment Records': { view: true, create: false, edit: false, delete: false, export: false },
-    },
-  },
-];
+// TODO: Fetch from /api/roles
+const initialRoles: Role[] = [];
 
 export function RolesPermissions() {
   const [roles, setRoles] = useState<Role[]>(initialRoles);
-  const [selectedRole, setSelectedRole] = useState<string>('Clinic Owner');
+  const [selectedRole, setSelectedRole] = useState<string>('');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPermissionWarning, setShowPermissionWarning] = useState(false);
@@ -142,17 +68,36 @@ export function RolesPermissions() {
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDescription, setNewRoleDescription] = useState('');
 
-  const getCurrentRole = () => {
-    return roles.find((r) => r.name === selectedRole) || roles[0];
+  // Fetch roles from API on component mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await fetch('/api/roles');
+        if (!response.ok) throw new Error('Failed to fetch roles');
+        const data = await response.json();
+        setRoles(data || []);
+        if (data && data.length > 0) setSelectedRole(data[0].name);
+      } catch (error) {
+        console.error('Failed to fetch roles:', error);
+        alert('Failed to load roles. Please check your server connection.');
+      }
+    };
+    fetchRoles();
+  }, []);
+
+  const getCurrentRole = (): Role | undefined => {
+    return roles.find((role) => role.name === selectedRole);
   };
 
   const getPermissionCount = (type: PermissionType) => {
     const role = getCurrentRole();
+    if (!role) return 0;
     return Object.values(role.permissions).filter((p) => p[type]).length;
   };
 
   const togglePermission = (feature: string, type: PermissionType) => {
     const currentRole = getCurrentRole();
+    if (!currentRole) return;
     const currentValue = currentRole.permissions[feature][type];
 
     // Show warning for critical permissions
@@ -196,19 +141,51 @@ export function RolesPermissions() {
     setPendingPermission(null);
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     setShowSaveModal(true);
   };
 
-  const confirmSaveChanges = () => {
+  const confirmSaveChanges = async () => {
     setShowSaveModal(false);
-    setShowSuccessModal(true);
-    setTimeout(() => {
-      setShowSuccessModal(false);
-    }, 2000);
+    const currentRole = getCurrentRole();
+    if (!currentRole || currentRole.id == null) {
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        setShowSuccessModal(false);
+      }, 2000);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/roles/${currentRole.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          name: currentRole.name,
+          description: currentRole.description,
+          permissions: currentRole.permissions,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to save role');
+      const updatedRole = await response.json();
+      setRoles((prevRoles) =>
+        prevRoles.map((role) => (role.id === updatedRole.id ? updatedRole : role))
+      );
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        setShowSuccessModal(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to save role:', error);
+      alert('Failed to save role. Please try again.');
+    }
   };
 
-  const handleAddRole = () => {
+  const handleAddRole = async () => {
     if (!newRoleName.trim()) return;
 
     const allFeatures = Object.values(featureCategories).flat();
@@ -230,22 +207,61 @@ export function RolesPermissions() {
       permissions: defaultPermissions,
     };
 
-    setRoles([...roles, newRole]);
-    setSelectedRole(newRoleName);
-    setShowAddRoleModal(false);
-    setNewRoleName('');
-    setNewRoleDescription('');
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch('/api/roles', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(newRole),
+      });
+      if (!response.ok) throw new Error('Failed to create role');
+      const createdRole = await response.json();
+      setRoles([...roles, createdRole]);
+      setSelectedRole(createdRole.name);
+      setShowAddRoleModal(false);
+      setNewRoleName('');
+      setNewRoleDescription('');
+    } catch (error) {
+      console.error('Failed to create role:', error);
+      alert('Failed to create role. Please try again.');
+    }
   };
 
-  const handleDeleteRole = () => {
+  const handleDeleteRole = async () => {
+    const currentRole = getCurrentRole();
+    if (!currentRole) return;
     if (roles.length <= 1) {
       alert('Cannot delete the last role');
       return;
     }
 
-    setRoles(roles.filter((r) => r.name !== selectedRole));
-    setSelectedRole(roles[0].name === selectedRole ? roles[1].name : roles[0].name);
-    setShowDeleteRoleModal(false);
+    if (!currentRole.id) {
+      setRoles(roles.filter((r) => r.name !== selectedRole));
+      setSelectedRole(roles[0].name === selectedRole ? roles[1].name : roles[0].name);
+      setShowDeleteRoleModal(false);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/roles/${currentRole.id}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (!response.ok) throw new Error('Failed to delete role');
+      setRoles(roles.filter((r) => r.name !== selectedRole));
+      setSelectedRole(roles[0].name === selectedRole ? roles[1].name : roles[0].name);
+      setShowDeleteRoleModal(false);
+    } catch (error) {
+      console.error('Failed to delete role:', error);
+      alert('Failed to delete role. Please try again.');
+    }
   };
 
   return (
@@ -351,20 +367,28 @@ export function RolesPermissions() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {Object.entries(featureCategories).map(([category, features]) => (
-                <>
-                  <tr key={category} className="bg-gray-50">
-                    <td
-                      colSpan={6}
-                      className="px-6 py-3 text-sm font-semibold text-gray-900"
-                    >
-                      {category}
-                    </td>
-                  </tr>
-                  {features.map((feature) => {
-                    const permissions = getCurrentRole().permissions[feature];
-                    return (
-                      <tr key={feature} className="hover:bg-gray-50">
+              {!getCurrentRole() ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    No roles available. Create a new role to get started.
+                  </td>
+                </tr>
+              ) : (
+                Object.entries(featureCategories).map(([category, features]) => (
+                  <>
+                    <tr key={category} className="bg-gray-50">
+                      <td
+                        colSpan={6}
+                        className="px-6 py-3 text-sm font-semibold text-gray-900"
+                      >
+                        {category}
+                      </td>
+                    </tr>
+                    {features.map((feature) => {
+                      const currentRole = getCurrentRole();
+                      const permissions = currentRole?.permissions[feature];
+                      return (
+                        <tr key={feature} className="hover:bg-gray-50">
                         <td className="px-6 py-4 text-sm text-blue-600">
                           {feature}
                         </td>
@@ -416,7 +440,8 @@ export function RolesPermissions() {
                     );
                   })}
                 </>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

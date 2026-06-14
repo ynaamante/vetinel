@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Settings as SettingsIcon,
   Bell,
@@ -8,11 +8,232 @@ import {
   Save,
 } from 'lucide-react';
 
+type SettingKey =
+  | 'emailNotifications'
+  | 'securityAlerts'
+  | 'maintenanceMode'
+  | 'autoBackup'
+  | 'sessionTimeout'
+  | 'maxLoginAttempts'
+  | 'passwordExpiryDays'
+  | 'platformName'
+  | 'supportEmail'
+  | 'smtpHost'
+  | 'smtpPort'
+  | 'fromEmail'
+  | 'backupRetentionDays';
+
+type SettingsState = {
+  emailNotifications: boolean;
+  securityAlerts: boolean;
+  maintenanceMode: boolean;
+  autoBackup: boolean;
+  sessionTimeout: number;
+  maxLoginAttempts: number;
+  passwordExpiryDays: number;
+  platformName: string;
+  supportEmail: string;
+  smtpHost: string;
+  smtpPort: number;
+  fromEmail: string;
+  backupRetentionDays: number;
+};
+
+type ClinicOption = {
+  id: number;
+  name: string;
+};
+
+const initialSettings: SettingsState = {
+  emailNotifications: true,
+  securityAlerts: true,
+  maintenanceMode: false,
+  autoBackup: true,
+  sessionTimeout: 30,
+  maxLoginAttempts: 5,
+  passwordExpiryDays: 90,
+  platformName: 'VetIntel',
+  supportEmail: 'support@vetintel.com',
+  smtpHost: 'smtp.vetintel.com',
+  smtpPort: 587,
+  fromEmail: 'noreply@vetintel.com',
+  backupRetentionDays: 30,
+};
+
+const initialSettingIds: Record<SettingKey, number | null> = {
+  emailNotifications: null,
+  securityAlerts: null,
+  maintenanceMode: null,
+  autoBackup: null,
+  sessionTimeout: null,
+  maxLoginAttempts: null,
+  passwordExpiryDays: null,
+  platformName: null,
+  supportEmail: null,
+  smtpHost: null,
+  smtpPort: null,
+  fromEmail: null,
+  backupRetentionDays: null,
+};
+
+const apiKeyMap: Record<SettingKey, string> = {
+  emailNotifications: 'email_notifications',
+  securityAlerts: 'security_alerts',
+  maintenanceMode: 'maintenance_mode',
+  autoBackup: 'automatic_backups',
+  sessionTimeout: 'session_timeout_minutes',
+  maxLoginAttempts: 'max_login_attempts',
+  passwordExpiryDays: 'password_expiry_days',
+  platformName: 'platform_name',
+  supportEmail: 'support_email',
+  smtpHost: 'smtp_host',
+  smtpPort: 'smtp_port',
+  fromEmail: 'smtp_from_email',
+  backupRetentionDays: 'backup_retention_days',
+};
+
+const getApiKey = (key: SettingKey) => apiKeyMap[key];
+const apiKeyToState = Object.fromEntries(
+  Object.entries(apiKeyMap).map(([stateKey, apiKey]) => [apiKey, stateKey])
+) as Record<string, SettingKey>;
+
 export function Settings() {
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [securityAlerts, setSecurityAlerts] = useState(true);
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [autoBackup, setAutoBackup] = useState(true);
+  const [settings, setSettings] = useState<SettingsState>(initialSettings);
+  const [globalSettingIds, setGlobalSettingIds] = useState<Record<SettingKey, number | null>>(initialSettingIds);
+  const [clinicSettingIds, setClinicSettingIds] = useState<Record<SettingKey, number | null>>(initialSettingIds);
+  const [clinics, setClinics] = useState<ClinicOption[]>([]);
+  const [selectedClinic, setSelectedClinic] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchClinics = async () => {
+      try {
+        const response = await fetch('/api/clinics');
+        if (!response.ok) throw new Error('Failed to fetch clinics');
+        const data = (await response.json()) as any[];
+        setClinics(data.map((clinic: any) => ({ id: clinic.id, name: clinic.name })));
+      } catch (error) {
+        console.error('Failed to load clinics:', error);
+      }
+    };
+
+    fetchClinics();
+  }, []);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if (!response.ok) throw new Error('Failed to fetch settings');
+        const data = (await response.json()) as any[];
+
+        const loadedGlobalIds = { ...initialSettingIds };
+        const loadedClinicIds = { ...initialSettingIds };
+        const globalValues: Record<string, any> = {};
+        const clinicValues: Record<string, any> = {};
+
+        data.forEach((row: any) => {
+          const stateKey = apiKeyToState[row.key];
+          if (!stateKey) return;
+          if (row.clinic_id == null) {
+            loadedGlobalIds[stateKey] = row.id;
+            globalValues[stateKey] = row.value;
+          } else if (selectedClinic && Number(row.clinic_id) === Number(selectedClinic)) {
+            loadedClinicIds[stateKey] = row.id;
+            clinicValues[stateKey] = row.value;
+          }
+        });
+
+        const loadedSettings: SettingsState = { ...initialSettings };
+        Object.keys(globalValues).forEach((k) => (loadedSettings as Record<string, any>)[k] = globalValues[k]);
+        Object.keys(clinicValues).forEach((k) => (loadedSettings as Record<string, any>)[k] = clinicValues[k]);
+
+        setSettings(loadedSettings);
+        setGlobalSettingIds(loadedGlobalIds);
+        setClinicSettingIds(loadedClinicIds);
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+        setLoadError('Failed to load settings. Please check your server connection.');
+      }
+    };
+
+    loadSettings();
+  }, [selectedClinic]);
+
+  const updateSetting = (key: SettingKey, value: string | number | boolean) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+
+    try {
+      const entries = Object.entries(settings) as [SettingKey, string | number | boolean][];
+      const results = await Promise.all(
+        entries.map(async ([stateKey, value]) => {
+          const apiKey = getApiKey(stateKey);
+          const body = { key: apiKey, value };
+
+          if (selectedClinic) {
+            const clinicId = clinicSettingIds[stateKey];
+            if (clinicId) {
+              const res = await fetch(`/api/settings/${clinicId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+              });
+              if (!res.ok) throw new Error('Failed to update clinic setting');
+              return { stateKey, payload: await res.json(), scope: 'clinic' };
+            }
+            const res = await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ clinic_id: selectedClinic, ...body }),
+            });
+            if (!res.ok) throw new Error('Failed to create clinic setting');
+            return { stateKey, payload: await res.json(), scope: 'clinic' };
+          } else {
+            const globalId = globalSettingIds[stateKey];
+            if (globalId) {
+              const res = await fetch(`/api/settings/${globalId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+              });
+              if (!res.ok) throw new Error('Failed to update global setting');
+              return { stateKey, payload: await res.json(), scope: 'global' };
+            }
+            const res = await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ clinic_id: null, ...body }),
+            });
+            if (!res.ok) throw new Error('Failed to create global setting');
+            return { stateKey, payload: await res.json(), scope: 'global' };
+          }
+        })
+      );
+
+      const updatedGlobal = { ...globalSettingIds };
+      const updatedClinic = { ...clinicSettingIds };
+      results.forEach(({ stateKey, payload, scope }: any) => {
+        if (!payload?.id) return;
+        const sk = stateKey as SettingKey;
+        if (scope === 'clinic') updatedClinic[sk] = payload.id;
+        else updatedGlobal[sk] = payload.id;
+      });
+      setGlobalSettingIds(updatedGlobal);
+      setClinicSettingIds(updatedClinic);
+
+      alert('Settings saved successfully.');
+    } catch (error) {
+      console.error('Save settings failed:', error);
+      alert('Failed to save settings. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -24,11 +245,31 @@ export function Settings() {
             Configure platform-wide settings and preferences
           </p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">Clinic</label>
+          <select
+            value={selectedClinic ?? ''}
+            onChange={(e) => setSelectedClinic(e.target.value ? Number(e.target.value) : null)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">Global</option>
+            {clinics.map((clinic) => (
+              <option key={clinic.id} value={clinic.id}>{clinic.name}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={handleSaveChanges}
+          disabled={isSaving}
+          className={`px-4 py-2 rounded-lg flex items-center gap-2 ${isSaving ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+        >
           <Save className="w-4 h-4" />
-          Save Changes
+          {isSaving ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
+      {loadError && (
+        <div className="text-sm text-red-600">{loadError}</div>
+      )}
 
       {/* Notification Settings */}
       <div className="bg-white rounded-lg border border-gray-200">
@@ -56,14 +297,14 @@ export function Settings() {
               </p>
             </div>
             <button
-              onClick={() => setEmailNotifications(!emailNotifications)}
+              onClick={() => updateSetting('emailNotifications', !settings.emailNotifications)}
               className={`relative w-12 h-6 rounded-full transition-colors ${
-                emailNotifications ? 'bg-blue-600' : 'bg-gray-300'
+                settings.emailNotifications ? 'bg-blue-600' : 'bg-gray-300'
               }`}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                  emailNotifications ? 'translate-x-6' : ''
+                  settings.emailNotifications ? 'translate-x-6' : ''
                 }`}
               />
             </button>
@@ -77,14 +318,14 @@ export function Settings() {
               </p>
             </div>
             <button
-              onClick={() => setSecurityAlerts(!securityAlerts)}
+              onClick={() => updateSetting('securityAlerts', !settings.securityAlerts)}
               className={`relative w-12 h-6 rounded-full transition-colors ${
-                securityAlerts ? 'bg-blue-600' : 'bg-gray-300'
+                settings.securityAlerts ? 'bg-blue-600' : 'bg-gray-300'
               }`}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                  securityAlerts ? 'translate-x-6' : ''
+                  settings.securityAlerts ? 'translate-x-6' : ''
                 }`}
               />
             </button>
@@ -116,7 +357,8 @@ export function Settings() {
             </label>
             <input
               type="number"
-              defaultValue={30}
+              value={settings.sessionTimeout}
+              onChange={(e) => updateSetting('sessionTimeout', Number(e.target.value))}
               className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -127,7 +369,8 @@ export function Settings() {
             </label>
             <input
               type="number"
-              defaultValue={5}
+              value={settings.maxLoginAttempts}
+              onChange={(e) => updateSetting('maxLoginAttempts', Number(e.target.value))}
               className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -138,7 +381,8 @@ export function Settings() {
             </label>
             <input
               type="number"
-              defaultValue={90}
+              value={settings.passwordExpiryDays}
+              onChange={(e) => updateSetting('passwordExpiryDays', Number(e.target.value))}
               className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -171,14 +415,14 @@ export function Settings() {
               </p>
             </div>
             <button
-              onClick={() => setMaintenanceMode(!maintenanceMode)}
+              onClick={() => updateSetting('maintenanceMode', !settings.maintenanceMode)}
               className={`relative w-12 h-6 rounded-full transition-colors ${
-                maintenanceMode ? 'bg-blue-600' : 'bg-gray-300'
+                settings.maintenanceMode ? 'bg-blue-600' : 'bg-gray-300'
               }`}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                  maintenanceMode ? 'translate-x-6' : ''
+                  settings.maintenanceMode ? 'translate-x-6' : ''
                 }`}
               />
             </button>
@@ -190,7 +434,8 @@ export function Settings() {
             </label>
             <input
               type="text"
-              defaultValue="VetIntel"
+              value={settings.platformName}
+              onChange={(e) => updateSetting('platformName', e.target.value)}
               className="w-full md:w-96 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -201,7 +446,8 @@ export function Settings() {
             </label>
             <input
               type="email"
-              defaultValue="support@vetintel.com"
+              value={settings.supportEmail}
+              onChange={(e) => updateSetting('supportEmail', e.target.value)}
               className="w-full md:w-96 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -234,14 +480,14 @@ export function Settings() {
               </p>
             </div>
             <button
-              onClick={() => setAutoBackup(!autoBackup)}
+              onClick={() => updateSetting('autoBackup', !settings.autoBackup)}
               className={`relative w-12 h-6 rounded-full transition-colors ${
-                autoBackup ? 'bg-blue-600' : 'bg-gray-300'
+                settings.autoBackup ? 'bg-blue-600' : 'bg-gray-300'
               }`}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                  autoBackup ? 'translate-x-6' : ''
+                  settings.autoBackup ? 'translate-x-6' : ''
                 }`}
               />
             </button>
@@ -253,7 +499,8 @@ export function Settings() {
             </label>
             <input
               type="number"
-              defaultValue={30}
+              value={settings.backupRetentionDays}
+              onChange={(e) => updateSetting('backupRetentionDays', Number(e.target.value))}
               className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -290,7 +537,8 @@ export function Settings() {
             </label>
             <input
               type="text"
-              defaultValue="smtp.vetintel.com"
+              value={settings.smtpHost}
+              onChange={(e) => updateSetting('smtpHost', e.target.value)}
               className="w-full md:w-96 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -302,7 +550,8 @@ export function Settings() {
               </label>
               <input
                 type="number"
-                defaultValue={587}
+                value={settings.smtpPort}
+                onChange={(e) => updateSetting('smtpPort', Number(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -312,7 +561,8 @@ export function Settings() {
               </label>
               <input
                 type="email"
-                defaultValue="noreply@vetintel.com"
+                value={settings.fromEmail}
+                onChange={(e) => updateSetting('fromEmail', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>

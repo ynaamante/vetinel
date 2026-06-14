@@ -7,103 +7,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react';
-
-const kpiData = [
-  {
-    label: 'Total Registered Clinics',
-    value: '248',
-    change: '+12%',
-    trend: 'up',
-    icon: Building2,
-    color: 'blue',
-  },
-  {
-    label: 'Active Clinics',
-    value: '231',
-    change: '+8%',
-    trend: 'up',
-    icon: CheckCircle,
-    color: 'green',
-  },
-  {
-    label: 'Pending Approvals',
-    value: '5',
-    change: '-2',
-    trend: 'down',
-    icon: Clock,
-    color: 'yellow',
-  },
-  {
-    label: 'Suspended Clinics',
-    value: '12',
-    change: '+3',
-    trend: 'up',
-    icon: AlertCircle,
-    color: 'red',
-  },
-  {
-    label: 'Total Doctors',
-    value: '1,247',
-    change: '+156',
-    trend: 'up',
-    icon: Users,
-    color: 'purple',
-  },
-  {
-    label: 'Total Receptionists',
-    value: '892',
-    change: '+94',
-    trend: 'up',
-    icon: UserCheck,
-    color: 'indigo',
-  },
-  {
-    label: 'Total Platform Users',
-    value: '2,891',
-    change: '+312',
-    trend: 'up',
-    icon: Users,
-    color: 'cyan',
-  },
-];
-
-const recentActivity = [
-  {
-    type: 'Clinic Registration',
-    description: 'PetCare Veterinary Hospital registered',
-    time: '5 minutes ago',
-    icon: Building2,
-    color: 'blue',
-  },
-  {
-    type: 'User Creation',
-    description: 'Dr. Sarah Johnson added to Happy Paws Clinic',
-    time: '12 minutes ago',
-    icon: Users,
-    color: 'green',
-  },
-  {
-    type: 'Role Change',
-    description: 'John Doe promoted to Clinic Owner',
-    time: '1 hour ago',
-    icon: UserCheck,
-    color: 'purple',
-  },
-  {
-    type: 'Account Suspension',
-    description: 'Sunset Veterinary Clinic suspended for policy violation',
-    time: '2 hours ago',
-    icon: AlertCircle,
-    color: 'red',
-  },
-  {
-    type: 'Clinic Registration',
-    description: 'Animal Care Center registered',
-    time: '3 hours ago',
-    icon: Building2,
-    color: 'blue',
-  },
-];
+import { useState, useEffect } from 'react';
 
 const colorMap: Record<string, string> = {
   blue: 'bg-blue-100 text-blue-700',
@@ -116,6 +20,61 @@ const colorMap: Record<string, string> = {
 };
 
 export function Dashboard() {
+  const [kpiData, setKpiData] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        // Fetch KPI stats
+        const statsResponse = await fetch('/api/dashboard/stats');
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setKpiData(statsData.kpis || []);
+        }
+
+        // Fetch recent activity
+        const activityResponse = await fetch('/api/dashboard/activity');
+        if (activityResponse.ok) {
+          const activityData = await activityResponse.json();
+          setRecentActivity(activityData || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+  const pickKpiIcon = (label: string) => {
+    switch (label) {
+      case 'Total Users':
+        return Users;
+      case 'Total Clinics':
+        return Building2;
+      case 'Appointments':
+        return UserCheck;
+      case 'Revenue':
+        return TrendingUp;
+      case 'Activities (24h)':
+        return Clock;
+      case 'Announcements':
+        return AlertCircle;
+      default:
+        return CheckCircle;
+    }
+  };
+
+  const pickActivityIcon = (activity: any) => {
+    // activity.type or table_name might indicate icon; fallback to CheckCircle
+    if (!activity) return CheckCircle;
+    if (activity.type && activity.type.toLowerCase().includes('error')) return AlertCircle;
+    return CheckCircle;
+  };
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -152,8 +111,11 @@ export function Dashboard() {
                   </span>
                 </div>
               </div>
-              <div className={`p-3 rounded-lg ${colorMap[kpi.color]}`}>
-                <kpi.icon className="w-6 h-6" />
+              <div className={`p-3 rounded-lg ${colorMap[kpi.color] || colorMap.blue}`}>
+                {(() => {
+                  const Icon = kpi.icon || pickKpiIcon(kpi.label);
+                  return <Icon className="w-6 h-6" />;
+                })()}
               </div>
             </div>
           </div>
@@ -169,9 +131,12 @@ export function Dashboard() {
             {recentActivity.map((activity, index) => (
               <div key={index} className="flex items-start gap-4">
                 <div
-                  className={`p-2 rounded-lg ${colorMap[activity.color]} flex-shrink-0`}
+                  className={`p-2 rounded-lg ${colorMap[activity.color] || colorMap.blue} flex-shrink-0`}
                 >
-                  <activity.icon className="w-5 h-5" />
+                  {(() => {
+                    const AIcon = activity.icon || pickActivityIcon(activity);
+                    return <AIcon className="w-5 h-5" />;
+                  })()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">

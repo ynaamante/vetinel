@@ -36,17 +36,7 @@ type ArchivedUser = User & {
   expiresAt: Date;
 };
 
-const initialUsers: User[] = [
-  { id: 1, name: 'Dr. Michael Chen', email: 'michael.chen@happypaws.com', clinic: 'Happy Paws Veterinary Clinic', role: 'Clinic Owner', status: 'Active', lastLogin: '2026-05-29 10:30 AM' },
-  { id: 2, name: 'Dr. Sarah Johnson', email: 'sarah.johnson@petcare.com', clinic: 'PetCare Animal Hospital', role: 'Clinic Owner', status: 'Active', lastLogin: '2026-05-29 09:15 AM' },
-  { id: 3, name: 'Dr. Emily Watson', email: 'emily.watson@companionanimal.com', clinic: 'Companion Animal Clinic', role: 'Doctor', status: 'Active', lastLogin: '2026-05-28 06:45 PM' },
-  { id: 4, name: 'John Anderson', email: 'john.anderson@happypaws.com', clinic: 'Happy Paws Veterinary Clinic', role: 'Receptionist', status: 'Active', lastLogin: '2026-05-29 08:00 AM' },
-  { id: 5, name: 'Dr. Robert Kim', email: 'robert.kim@sunset.com', clinic: 'Sunset Veterinary Clinic', role: 'Clinic Owner', status: 'Disabled', lastLogin: '2026-05-20 03:30 PM' },
-  { id: 6, name: 'Lisa Martinez', email: 'lisa.martinez@petcare.com', clinic: 'PetCare Animal Hospital', role: 'Receptionist', status: 'Active', lastLogin: '2026-05-29 07:30 AM' },
-  { id: 7, name: 'Dr. David Lee', email: 'david.lee@citypet.com', clinic: 'City Pet Hospital', role: 'Clinic Owner', status: 'Active', lastLogin: '2026-05-28 11:20 AM' },
-  { id: 8, name: 'Maria Garcia', email: 'maria.garcia@healingpaws.com', clinic: 'Healing Paws Veterinary', role: 'Doctor', status: 'Active', lastLogin: '2026-05-29 09:45 AM' },
-];
-
+// TODO: Fetch from /api/users
 const roles = ['Clinic Owner', 'Doctor', 'Receptionist', 'Nurse', 'Admin'];
 
 function daysLeft(expiresAt: Date) {
@@ -64,12 +54,15 @@ function Avatar({ name, size = 10 }: { name: string; size?: number }) {
 }
 
 export function UserManagement() {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [archived, setArchived] = useState<ArchivedUser[]>([]);
+  const [availableClinics, setAvailableClinics] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedClinic, setSelectedClinic] = useState('all');
   const [showActionMenu, setShowActionMenu] = useState<number | null>(null);
+
+  const clinicExists = (clinicName: string) => availableClinics.includes(clinicName);
   const [activeTab, setActiveTab] = useState<'users' | 'archive'>('users');
 
   // Modals
@@ -91,6 +84,44 @@ export function UserManagement() {
   const [createForm, setCreateForm] = useState({ name: '', email: '', clinic: '', role: '' });
 
   const actionMenuRef = useRef<HTMLDivElement>(null);
+
+  // Fetch users from API on mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/users');
+        if (!response.ok) throw new Error('Failed to fetch users');
+        const data = await response.json();
+        // Map database users to component User type
+        setUsers(data.map((user: any) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          clinic: user.clinic || 'Unassigned',
+          role: user.role || 'Unassigned',
+          status: user.is_active ? 'Active' : 'Disabled',
+          lastLogin: new Date(user.updated_at).toLocaleDateString(),
+        })));
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
+        showToast('Failed to load users', 'error');
+      }
+    };
+
+    const fetchClinics = async () => {
+      try {
+        const response = await fetch('/api/clinics');
+        if (!response.ok) throw new Error('Failed to fetch clinics');
+        const data = await response.json();
+        setAvailableClinics(data.map((clinic: any) => clinic.name));
+      } catch (error) {
+        console.error('Failed to fetch clinics:', error);
+      }
+    };
+
+    fetchUsers();
+    fetchClinics();
+  }, []);
 
   // Purge expired archived users
   useEffect(() => {
@@ -116,7 +147,7 @@ export function UserManagement() {
     setTimeout(() => setToast(null), 3000);
   }
 
-  const clinics = Array.from(new Set(initialUsers.map(u => u.clinic)));
+  const clinics = Array.from(new Set(users.map(u => u.clinic)));
 
   const filteredUsers = users.filter(user => {
     const matchesSearch =
@@ -221,21 +252,53 @@ export function UserManagement() {
     setPermanentDeleteUser(null);
   }
 
-  function createUser() {
+  async function createUser() {
     if (!createForm.name || !createForm.email || !createForm.clinic || !createForm.role) {
       showToast('Please fill in all fields.', 'error');
       return;
     }
-    const newUser: User = {
-      id: Date.now(),
-      ...createForm,
-      status: 'Active',
-      lastLogin: 'Never',
-    };
-    setUsers(prev => [...prev, newUser]);
-    setCreateForm({ name: '', email: '', clinic: '', role: '' });
-    setShowCreateModal(false);
-    showToast(`${newUser.name} created successfully.`);
+
+    if (!availableClinics.includes(createForm.clinic)) {
+      showToast('Please create the clinic first before assigning a user to it.', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: createForm.name,
+          email: createForm.email,
+          password: 'ChangeMe123!',
+          clinic_name: createForm.clinic,
+          role_name: createForm.role,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to create user.', 'error');
+        return;
+      }
+
+      const user = await response.json();
+      setUsers(prev => [...prev, {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        clinic: createForm.clinic,
+        role: createForm.role,
+        status: user.is_active ? 'Active' : 'Disabled',
+        lastLogin: 'Never',
+      }] as User[]);
+      setCreateForm({ name: '', email: '', clinic: '', role: '' });
+      setShowCreateModal(false);
+      showToast(`${user.name} created successfully.`);
+    } catch (error) {
+      console.error('Failed to create user:', error);
+      showToast('Failed to create user.', 'error');
+    }
   }
 
   return (
@@ -512,15 +575,30 @@ export function UserManagement() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Clinic</label>
               <select value={createForm.clinic} onChange={e => setCreateForm(p => ({ ...p, clinic: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">Select clinic</option>
-                {clinics.map(c => <option key={c} value={c}>{c}</option>)}
+                {availableClinics.length === 0 ? (
+                  <option value="" disabled>No clinics available. Add a clinic first.</option>
+                ) : (
+                  availableClinics.map(c => <option key={c} value={c}>{c}</option>)
+                )}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-              <select value={createForm.role} onChange={e => setCreateForm(p => ({ ...p, role: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select
+                value={createForm.role}
+                onChange={e => setCreateForm(p => ({ ...p, role: e.target.value }))}
+                disabled={!createForm.clinic || !clinicExists(createForm.clinic)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+              >
                 <option value="">Select role</option>
                 {roles.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
+              {!createForm.clinic && (
+                <p className="text-xs text-red-600 mt-2">Please choose a clinic before selecting a role.</p>
+              )}
+              {createForm.clinic && !clinicExists(createForm.clinic) && (
+                <p className="text-xs text-red-600 mt-2">Clinic does not exist. Add the clinic first.</p>
+              )}
             </div>
           </div>
           <ModalFooter onCancel={() => setShowCreateModal(false)} onConfirm={createUser} confirmLabel="Create User" confirmClass="bg-blue-600 hover:bg-blue-700 text-white" />

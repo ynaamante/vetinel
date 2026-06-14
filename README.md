@@ -1,101 +1,1195 @@
-# VENTINEL-POWPOW
+# VETINEL - Veterinary Health Monitoring System
 
-This workspace contains three separate apps:
+A comprehensive veterinary health monitoring and clinic management platform with three integrated applications: an admin portal for clinic management, a mobile app for pet owners, and a super admin portal for system oversight.
 
-- [admin](admin) - the VetIntel admin portal built with Vite + React
-- [petwatch-rn](petwatch-rn) - the PetWatch mobile app built with Expo + React Native
-- [Super_Admin_Portal_Design](Super_Admin_Portal_Design) - a Vite-based super admin portal design bundle
+---
 
-## Clone the repository
+## Table of Contents
+
+1. [System Overview](#system-overview)
+2. [Architecture & Data Flow](#architecture--data-flow)
+3. [Frontend Applications](#frontend-applications)
+4. [API Endpoints](#api-endpoints)
+5. [Database Schema](#database-schema)
+6. [Backend Setup](#backend-setup)
+7. [Installation & Running](#installation--running)
+8. [Notes](#notes)
+
+---
+
+## System Overview
+
+The VETINEL system consists of three frontend applications that will connect to a single Node.js backend with PostgreSQL database:
+
+| Application | Purpose | Tech Stack | Users |
+|-----------|---------|-----------|-------|
+| **Admin Portal** | Clinic staff dashboard for managing appointments, clients, disease monitoring, and financial data | Vite + React + Tailwind CSS | Clinic Owners, Doctors, Receptionists |
+| **PetWatch Mobile** | Pet owner app for managing pets, appointments, vaccinations, health records, and receiving alerts | Expo + React Native + TypeScript | Pet Owners |
+| **Super Admin Portal** | System administration for managing clinics, users, roles, permissions, and audit trails | Vite + React + TypeScript | System Administrators |
+
+### Key Features
+
+#### Admin Portal Features:
+- Dashboard with real-time disease monitoring and outbreak alerts
+- Appointment and patient queue management
+- Client/patient management
+- Billing and financial monitoring
+- Risk monitoring (low, moderate, high)
+- Community analytics and reporting
+- Data synchronization
+- Audit trail tracking
+- User role management
+
+#### PetWatch Mobile Features:
+- Pet profile management (dogs, cats, other species)
+- Vaccination tracking and scheduling
+- Health symptom reporting
+- Appointment booking
+- Nearby clinic discovery
+- Health tips and education
+- Alert notifications for outbreaks and vaccination reminders
+- Deworming schedule tracking
+- Health history records
+
+#### Super Admin Portal Features:
+- Clinic management and oversight
+- User management across all clinics
+- Role-based access control (RBAC)
+- Audit trail for system activities
+- System settings and configuration
+- Dashboard with system metrics
+
+---
+
+## Architecture & Data Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         FRONTEND LAYER                           │
+├────────────────────┬──────────────────┬──────────────────────────┤
+│  Admin Portal      │  PetWatch Mobile │  Super Admin Portal      │
+│  (Vite + React)    │  (Expo + RN)     │  (Vite + React)          │
+│                    │                  │                          │
+│ - Dashboard        │ - Home Screen    │ - Dashboard              │
+│ - Appointments     │ - Alerts         │ - Clinic Mgmt            │
+│ - Clients          │ - Appointments   │ - User Mgmt              │
+│ - Disease Monitor  │ - Profile        │ - Roles & Permissions    │
+│ - Billing          │ - Pet Details    │ - Audit Trail            │
+│ - Analytics        │ - Add Pet        │ - Settings               │
+│ - Reports          │ - Health Tips    │                          │
+└────────────────────┴──────────────────┴──────────────────────────┘
+                              ↓ HTTP REST API
+┌─────────────────────────────────────────────────────────────────┐
+│                    BACKEND LAYER (Node.js)                       │
+├─────────────────────────────────────────────────────────────────┤
+│ API Server                                                        │
+│ - Authentication & Authorization (JWT)                          │
+│ - Request Validation                                            │
+│ - Business Logic                                                │
+│ - Error Handling                                                │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓ SQL Queries
+┌─────────────────────────────────────────────────────────────────┐
+│                  DATABASE LAYER (PostgreSQL)                     │
+├─────────────────────────────────────────────────────────────────┤
+│ - Users & Authentication                                        │
+│ - Clinics & Management                                          │
+│ - Pets & Owners                                                 │
+│ - Appointments                                                  │
+│ - Medical Records (Vaccinations, Symptoms, Health History)     │
+│ - Billing & Financials                                         │
+│ - Disease Monitoring Data                                       │
+│ - Audit Logs                                                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow Example: Pet Owner Booking Appointment
+
+1. **PetWatch App**: User selects a clinic and available slot
+2. **Frontend**: Sends HTTP POST request to `/api/appointments` with appointment data
+3. **Backend**: Validates request, checks clinic availability, stores in database
+4. **Admin Portal**: Updates real-time dashboard showing new appointment
+5. **Notifications**: System generates alert for pet owner
+
+---
+
+## Frontend Applications
+
+### 1. Admin Portal (`/admin`)
+
+**Purpose**: Clinic staff management dashboard
+
+**Main Pages & Routes**:
+- `/` - Dashboard (overview, key metrics, recent alerts)
+- `/disease` - Disease Monitoring (disease trends, outbreak alerts)
+- `/clinic` - Clinic Layout/Overview
+- `/appointments-ops` - Appointment Management
+- `/patient-queue` - Patient Queue Management
+- `/billing` - Billing Management
+- `/client-mgmt` - Client Management
+- `/reminders` - Reminders Management
+- `/risk` - Risk Monitoring (low/moderate/high risk cases)
+- `/analytics` - Community Analytics
+- `/reports` - Reports Generation
+- `/sync` - Data Synchronization
+- `/clinics` - Clinic Management (Multi-clinic support)
+- `/users` - User Role Management
+- `/financial` - Financial Monitoring & Analytics
+- `/audit` - Audit Trail Logs
+- `/login` - Authentication
+
+**Key Components**:
+- `Sidebar.jsx` - Navigation sidebar with menu items
+- `Topbar.jsx` - Top navigation with user info
+- `AlertItem.jsx` - Alert display component
+- Various Page components for each route
+
+**User Roles**:
+- **Owner**: Full access to all clinic data and settings
+- **Doctor**: Access to patient records, medical history, appointments
+- **Receptionist**: Access to appointments, client management, billing
+
+---
+
+### 2. PetWatch Mobile App (`/petwatch-rn`)
+
+**Purpose**: Pet owner mobile application for health management
+
+**Main Screens & Routes**:
+- `/login` - Authentication
+- `/register` - User registration
+- `/clinic-selection` - Clinic selection after registration
+- `/home` - Home dashboard (pets overview, quick actions)
+- `/alerts` - System and personal alerts
+- `/appointments` - Appointments view
+- `/profile` - User profile management
+- `/pet-details/:id` - Individual pet details page
+- `/add-pet` - Add new pet to profile
+- `/report-symptoms` - Report pet symptoms
+- `/vaccinations` - Pet vaccinations tracking
+- `/health-history` - Complete health history
+- `/health-report` - Health report generation
+- `/book-appointment` - Appointment booking flow
+- `/nearby-clinics` - Discover nearby veterinary clinics
+- `/health-tips` - Health tips and education
+
+**Core Data Models** (TypeScript Interfaces):
+
+```typescript
+interface Pet {
+  id: string;
+  name: string;
+  species: 'dog' | 'cat' | 'other';
+  breed: string;
+  age: number;
+  weight: number;
+  color: string;
+  lastDewormingDate?: string;
+  nextDewormingDate?: string;
+}
+
+interface Vaccination {
+  id: string;
+  petId: string;
+  vaccine: string;
+  date: string;
+  nextDue: string;
+  status: 'completed' | 'upcoming' | 'overdue';
+}
+
+interface Appointment {
+  id: string;
+  petId: string;
+  petName: string;
+  date: string;
+  time: string;
+  type: string;
+  vetName: string;
+  status: 'upcoming' | 'completed' | 'cancelled';
+  clinicId: string;
+  clinicName: string;
+}
+
+interface Alert {
+  id: string;
+  title: string;
+  message: string;
+  severity: 'low' | 'moderate' | 'high';
+  date: string;
+  read: boolean;
+  type: 'outbreak' | 'vaccination' | 'appointment' | 'symptom' | 'deworming';
+}
+
+interface Symptom {
+  id: string;
+  petId: string;
+  symptoms: string[];
+  severity: 'low' | 'moderate' | 'high';
+  description: string;
+  date: string;
+  riskLevel: 'low' | 'moderate' | 'high';
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  selectedClinicId?: string;
+  createdAt: string;
+}
+
+interface Clinic {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  distance: number;
+  rating: number;
+  emergencyService: boolean;
+  specialties: string[];
+  hours: string;
+}
+```
+
+---
+
+### 3. Super Admin Portal (`/super-admin`)
+
+**Purpose**: System-wide administration and oversight
+
+**Main Routes**:
+- `/login` - Authentication
+- `/` - Dashboard (system overview)
+- `/clinics` - Clinic management and listing
+- `/clinics/:id` - Clinic details and settings
+- `/users` - User management across all clinics
+- `/roles` - Role-based access control (RBAC) management
+- `/audit` - System audit trail
+- `/settings` - System settings and configuration
+
+**Key Features**:
+- Protected routes with authentication check
+- Role-based access control
+- Multi-clinic oversight
+- User permission management
+- System audit logging
+
+---
+
+## API Endpoints
+
+The backend Node.js server should implement the following REST API endpoints. All endpoints require a JWT token in the `Authorization` header (except `/auth/login` and `/auth/register`).
+
+### Authentication Endpoints
+
+```
+POST   /api/auth/login              - User login
+POST   /api/auth/register           - User registration
+POST   /api/auth/refresh-token      - Refresh JWT token
+POST   /api/auth/logout             - User logout
+GET    /api/auth/verify             - Verify token validity
+```
+
+### User & Clinic Endpoints
+
+```
+GET    /api/users                   - List all users (admin/super-admin only)
+GET    /api/users/:id               - Get user details
+POST   /api/users                   - Create new user
+PUT    /api/users/:id               - Update user
+DELETE /api/users/:id               - Delete user
+
+GET    /api/clinics                 - List all clinics
+GET    /api/clinics/:id             - Get clinic details
+POST   /api/clinics                 - Create new clinic (super-admin)
+PUT    /api/clinics/:id             - Update clinic
+DELETE /api/clinics/:id             - Delete clinic (super-admin)
+
+GET    /api/roles                   - List all roles
+GET    /api/permissions             - List all permissions
+POST   /api/roles                   - Create new role (super-admin)
+PUT    /api/roles/:id               - Update role (super-admin)
+DELETE /api/roles/:id               - Delete role (super-admin)
+```
+
+### Pet Management Endpoints
+
+```
+GET    /api/pets                    - List user's pets
+GET    /api/pets/:id                - Get pet details
+POST   /api/pets                    - Create new pet
+PUT    /api/pets/:id                - Update pet information
+DELETE /api/pets/:id                - Delete pet
+
+GET    /api/pets/:id/vaccinations   - Get pet vaccinations
+POST   /api/pets/:id/vaccinations   - Add vaccination record
+PUT    /api/vaccinations/:id        - Update vaccination
+DELETE /api/vaccinations/:id        - Delete vaccination
+
+GET    /api/pets/:id/symptoms       - Get pet symptom history
+POST   /api/pets/:id/symptoms       - Report new symptoms
+PUT    /api/symptoms/:id            - Update symptom report
+DELETE /api/symptoms/:id            - Delete symptom report
+
+GET    /api/pets/:id/health-history - Get complete health history
+GET    /api/pets/:id/deworming      - Get deworming schedule
+POST   /api/pets/:id/deworming      - Schedule deworming
+```
+
+### Appointment Endpoints
+
+```
+GET    /api/appointments            - List appointments
+GET    /api/appointments/:id        - Get appointment details
+POST   /api/appointments            - Create appointment
+PUT    /api/appointments/:id        - Update appointment
+DELETE /api/appointments/:id        - Cancel appointment
+
+GET    /api/clinics/:id/availability - Get clinic available slots
+GET    /api/clinics/:id/schedules    - Get clinic schedules
+```
+
+### Alerts & Notifications Endpoints
+
+```
+GET    /api/alerts                  - List alerts for user
+GET    /api/alerts/:id              - Get alert details
+PUT    /api/alerts/:id/read         - Mark alert as read
+DELETE /api/alerts/:id              - Delete alert
+
+POST   /api/alerts/outbreak         - Create outbreak alert (backend/doctor)
+POST   /api/alerts/vaccination      - Create vaccination alert (backend)
+POST   /api/alerts/appointment      - Create appointment alert (backend)
+```
+
+### Disease Monitoring & Analytics Endpoints
+
+```
+GET    /api/disease-monitoring      - Get disease statistics and trends
+GET    /api/disease/:name           - Get specific disease data
+GET    /api/disease-monitoring/stats - Disease statistics by period
+GET    /api/disease-monitoring/trends - Disease trends over time
+
+GET    /api/analytics/community     - Community health analytics
+GET    /api/analytics/clinic        - Clinic-specific analytics
+GET    /api/risk-monitoring         - Risk data (low/moderate/high cases)
+```
+
+### Clinic Management Endpoints (Admin)
+
+```
+GET    /api/clinic/clients          - List clinic's clients/patients
+POST   /api/clinic/clients          - Add new client
+PUT    /api/clinic/clients/:id      - Update client
+DELETE /api/clinic/clients/:id      - Delete client
+
+GET    /api/clinic/appointments     - List clinic appointments
+POST   /api/clinic/appointments     - Schedule appointment
+PUT    /api/clinic/appointments/:id - Update appointment
+DELETE /api/clinic/appointments/:id - Cancel appointment
+
+GET    /api/clinic/queue            - Get current patient queue
+PUT    /api/clinic/queue/:id        - Update queue position
+
+GET    /api/clinic/billing          - Get billing records
+POST   /api/clinic/billing          - Create billing record
+PUT    /api/clinic/billing/:id      - Update billing
+
+GET    /api/clinic/financial        - Get financial reports
+GET    /api/clinic/reports          - Generate clinic reports
+```
+
+### Audit & System Endpoints
+
+```
+GET    /api/audit-trail             - Get system audit logs
+GET    /api/audit-trail/user/:id    - Get user's activities
+GET    /api/data-sync/status        - Get data synchronization status
+POST   /api/data-sync/trigger       - Trigger manual sync
+```
+
+### Clinic Discovery (Mobile)
+
+```
+GET    /api/clinics/nearby          - Find clinics by location
+GET    /api/clinics/search          - Search clinics by name/specialty
+GET    /api/clinics/:id/reviews     - Get clinic reviews/ratings
+```
+
+---
+
+## Database Schema
+
+PostgreSQL database structure for the VETINEL system:
+
+### Users & Authentication
+
+```sql
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  phone VARCHAR(20),
+  role_id UUID NOT NULL REFERENCES roles(id),
+  clinic_id UUID REFERENCES clinics(id),
+  location VARCHAR(255),
+  is_active BOOLEAN DEFAULT true,
+  last_login TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100) UNIQUE NOT NULL,
+  description TEXT,
+  clinic_id UUID REFERENCES clinics(id),
+  is_system_role BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100) UNIQUE NOT NULL,
+  description TEXT,
+  resource VARCHAR(100),
+  action VARCHAR(50),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE role_permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+  UNIQUE(role_id, permission_id)
+);
+```
+
+### Clinics
+
+```sql
+CREATE TABLE clinics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  address TEXT NOT NULL,
+  city VARCHAR(100),
+  state VARCHAR(100),
+  postal_code VARCHAR(20),
+  country VARCHAR(100),
+  phone VARCHAR(20),
+  email VARCHAR(255),
+  website VARCHAR(255),
+  owner_id UUID NOT NULL REFERENCES users(id),
+  rating DECIMAL(3, 2) DEFAULT 0.0,
+  emergency_service BOOLEAN DEFAULT false,
+  hours_open VARCHAR(255),
+  hours_close VARCHAR(255),
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE clinic_specialties (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  specialty VARCHAR(100) NOT NULL,
+  UNIQUE(clinic_id, specialty)
+);
+
+CREATE TABLE clinic_services (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  service_name VARCHAR(255) NOT NULL,
+  description TEXT,
+  price DECIMAL(10, 2),
+  is_available BOOLEAN DEFAULT true
+);
+```
+
+### Pets & Pet Owners
+
+```sql
+CREATE TABLE pet_owners (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(255),
+  phone VARCHAR(20),
+  address TEXT,
+  city VARCHAR(100),
+  postal_code VARCHAR(20),
+  preferred_clinic_id UUID REFERENCES clinics(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id)
+);
+
+CREATE TABLE pets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id UUID NOT NULL REFERENCES pet_owners(id) ON DELETE CASCADE,
+  clinic_id UUID REFERENCES clinics(id),
+  name VARCHAR(255) NOT NULL,
+  species VARCHAR(50) NOT NULL,
+  breed VARCHAR(100),
+  age INT,
+  weight DECIMAL(8, 2),
+  color VARCHAR(100),
+  microchip_id VARCHAR(50),
+  date_of_birth DATE,
+  gender VARCHAR(10),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Medical Records
+
+```sql
+CREATE TABLE vaccinations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pet_id UUID NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  vaccine_name VARCHAR(255) NOT NULL,
+  date_administered DATE NOT NULL,
+  next_due_date DATE NOT NULL,
+  vet_name VARCHAR(255),
+  clinic_id UUID REFERENCES clinics(id),
+  status VARCHAR(20) DEFAULT 'completed',
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE symptoms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pet_id UUID NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  symptoms TEXT[] NOT NULL,
+  severity VARCHAR(20) NOT NULL,
+  description TEXT,
+  reported_date DATE NOT NULL,
+  risk_level VARCHAR(20),
+  status VARCHAR(20) DEFAULT 'reported',
+  clinic_id UUID REFERENCES clinics(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE deworming_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pet_id UUID NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  last_deworming_date DATE,
+  next_deworming_date DATE,
+  deworming_type VARCHAR(100),
+  clinic_id UUID REFERENCES clinics(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE health_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pet_id UUID NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  record_type VARCHAR(50),
+  description TEXT,
+  recorded_date DATE,
+  vet_id UUID REFERENCES users(id),
+  clinic_id UUID REFERENCES clinics(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Appointments
+
+```sql
+CREATE TABLE appointments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pet_id UUID NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  owner_id UUID NOT NULL REFERENCES pet_owners(id) ON DELETE CASCADE,
+  clinic_id UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  vet_id UUID REFERENCES users(id),
+  appointment_date DATE NOT NULL,
+  appointment_time TIME NOT NULL,
+  appointment_type VARCHAR(100),
+  status VARCHAR(20) DEFAULT 'scheduled',
+  notes TEXT,
+  reminder_sent BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE appointment_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  appointment_id UUID NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+  queue_position INT,
+  status VARCHAR(20) DEFAULT 'waiting',
+  check_in_time TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Billing & Financial
+
+```sql
+CREATE TABLE billing_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  appointment_id UUID REFERENCES appointments(id),
+  clinic_id UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  owner_id UUID NOT NULL REFERENCES pet_owners(id) ON DELETE CASCADE,
+  amount DECIMAL(10, 2) NOT NULL,
+  service_description TEXT,
+  payment_method VARCHAR(50),
+  payment_status VARCHAR(20) DEFAULT 'pending',
+  invoice_number VARCHAR(50) UNIQUE,
+  issued_date DATE,
+  due_date DATE,
+  paid_date DATE,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE financial_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  report_date DATE,
+  total_revenue DECIMAL(15, 2),
+  total_expenses DECIMAL(15, 2),
+  total_appointments INT,
+  total_patients INT,
+  generated_by UUID REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Disease Monitoring & Alerts
+
+```sql
+CREATE TABLE disease_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  disease_name VARCHAR(255) NOT NULL,
+  clinic_id UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  reported_by UUID NOT NULL REFERENCES users(id),
+  number_of_cases INT NOT NULL,
+  report_date DATE NOT NULL,
+  severity VARCHAR(20),
+  geographic_area VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE disease_statistics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  disease_name VARCHAR(255) NOT NULL,
+  report_month DATE NOT NULL,
+  total_cases INT,
+  clinic_id UUID REFERENCES clinics(id),
+  growth_percentage DECIMAL(5, 2),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(disease_name, report_month, clinic_id)
+);
+
+CREATE TABLE alerts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  alert_type VARCHAR(50) NOT NULL,
+  severity VARCHAR(20) NOT NULL,
+  is_read BOOLEAN DEFAULT false,
+  related_pet_id UUID REFERENCES pets(id),
+  related_disease VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  read_at TIMESTAMP
+);
+
+CREATE TABLE outbreak_alerts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  disease_name VARCHAR(255) NOT NULL,
+  clinic_id UUID REFERENCES clinics(id),
+  geographic_area VARCHAR(255),
+  cases_exceeded_by_percentage INT,
+  severity VARCHAR(20) NOT NULL,
+  affected_clinics INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Audit Trail
+
+```sql
+CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  action VARCHAR(100) NOT NULL,
+  entity_type VARCHAR(100),
+  entity_id UUID,
+  changes JSONB,
+  ip_address VARCHAR(50),
+  user_agent TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Reminders & Notifications
+
+```sql
+CREATE TABLE reminders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reminder_type VARCHAR(50) NOT NULL,
+  pet_id UUID REFERENCES pets(id),
+  appointment_id UUID REFERENCES appointments(id),
+  reminder_date DATE NOT NULL,
+  reminder_time TIME,
+  message TEXT,
+  is_sent BOOLEAN DEFAULT false,
+  sent_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Indexes for Performance
+
+```sql
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_clinic_id ON users(clinic_id);
+CREATE INDEX idx_pets_owner_id ON pets(owner_id);
+CREATE INDEX idx_pets_clinic_id ON pets(clinic_id);
+CREATE INDEX idx_appointments_clinic_id ON appointments(clinic_id);
+CREATE INDEX idx_appointments_owner_id ON appointments(owner_id);
+CREATE INDEX idx_appointments_date ON appointments(appointment_date);
+CREATE INDEX idx_vaccinations_pet_id ON vaccinations(pet_id);
+CREATE INDEX idx_disease_reports_clinic ON disease_reports(clinic_id);
+CREATE INDEX idx_disease_reports_date ON disease_reports(report_date);
+CREATE INDEX idx_alerts_user_id ON alerts(user_id);
+CREATE INDEX idx_alerts_created ON alerts(created_at);
+CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_created ON audit_logs(created_at);
+```
+
+---
+
+## Backend Setup
+
+### Prerequisites
+
+- Node.js (v18+)
+- PostgreSQL (v12+)
+- npm or yarn
+
+### Backend Project Structure
+
+```
+backend/
+├── src/
+│   ├── config/
+│   │   ├── database.js       - PostgreSQL connection configuration
+│   │   ├── jwt.js            - JWT secret configuration
+│   │   └── env.js            - Environment variables
+│   ├── middleware/
+│   │   ├── auth.js           - JWT authentication middleware
+│   │   ├── authorization.js  - Role-based access control
+│   │   ├── errorHandler.js   - Error handling middleware
+│   │   └── validation.js     - Request validation
+│   ├── routes/
+│   │   ├── auth.js           - Authentication routes
+│   │   ├── users.js          - User management routes
+│   │   ├── clinics.js        - Clinic routes
+│   │   ├── pets.js           - Pet management routes
+│   │   ├── appointments.js   - Appointment routes
+│   │   ├── alerts.js         - Alert routes
+│   │   ├── disease.js        - Disease monitoring routes
+│   │   ├── billing.js        - Billing routes
+│   │   └── audit.js          - Audit trail routes
+│   ├── controllers/
+│   │   ├── authController.js
+│   │   ├── userController.js
+│   │   ├── clinicController.js
+│   │   ├── petController.js
+│   │   ├── appointmentController.js
+│   │   ├── alertController.js
+│   │   ├── diseaseController.js
+│   │   ├── billingController.js
+│   │   └── auditController.js
+│   ├── models/
+│   │   ├── User.js
+│   │   ├── Clinic.js
+│   │   ├── Pet.js
+│   │   ├── Appointment.js
+│   │   ├── Alert.js
+│   │   ├── Vaccination.js
+│   │   ├── DiseaseReport.js
+│   │   └── BillingRecord.js
+│   ├── utils/
+│   │   ├── validators.js     - Validation helper functions
+│   │   ├── responses.js      - Standard response formatting
+│   │   ├── emailService.js   - Email sending service
+│   │   ├── notifications.js  - Notification service
+│   │   └── helpers.js        - General utilities
+│   └── app.js               - Express app setup
+├── migrations/              - Database migrations
+├── seeds/                   - Database seeding scripts
+├── .env.example            - Environment variables template
+├── package.json
+└── server.js               - Entry point
+```
+
+### Environment Variables (.env)
+
+```env
+# Server
+NODE_ENV=development
+PORT=5000
+BASE_URL=http://localhost:5000
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=vetinel_db
+DB_USER=postgres
+DB_PASSWORD=your_password
+
+# JWT
+JWT_SECRET=your_jwt_secret_key_change_this_in_production
+JWT_EXPIRATION=24h
+REFRESH_TOKEN_EXPIRATION=7d
+
+# CORS
+CORS_ORIGIN=http://localhost:3000,http://localhost:5173,http://localhost:8081
+
+# Email (for notifications)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+
+# File Upload
+UPLOAD_DIR=./uploads
+MAX_FILE_SIZE=5242880
+
+# API Rate Limiting
+RATE_LIMIT_WINDOW=15
+RATE_LIMIT_MAX_REQUESTS=100
+```
+
+### Installation & Running Backend
+
+```bash
+# 1. Create backend directory and initialize
+mkdir backend
+cd backend
+npm init -y
+
+# 2. Install dependencies
+npm install express pg bcryptjs jsonwebtoken cors dotenv joi axios
+
+# 3. Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# 4. Create and run database migrations
+npm run migrate:up
+
+# 5. (Optional) Seed initial data
+npm run seed
+
+# 6. Start backend server
+npm start
+# or for development with hot reload
+npm run dev
+```
+
+### Database Setup Commands
+
+```bash
+# Connect to PostgreSQL
+psql -U postgres -d postgres
+
+# Create database
+CREATE DATABASE vetinel_db;
+
+# Run migrations
+psql -U postgres -d vetinel_db -f migrations/001_initial_schema.sql
+
+# Check tables
+\dt
+```
+
+---
+
+## Connecting Frontend to Backend
+
+### Admin Portal
+
+Update the API base URL in `admin/src/config/api.js`:
+
+```javascript
+// admin/src/config/api.js
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+export const apiClient = {
+  get: (endpoint) => fetch(`${API_BASE_URL}${endpoint}`, {
+    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+  }),
+  post: (endpoint, data) => fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  }),
+  put: (endpoint, data) => fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  }),
+  delete: (endpoint) => fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+  })
+};
+```
+
+Then in pages, replace mock data calls with API calls:
+
+```javascript
+// Before (mock data)
+import { USERS } from '../data/mockData';
+
+// After (API call)
+const fetchUsers = async () => {
+  try {
+    const response = await apiClient.get('/users');
+    const users = await response.json();
+    setUsers(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+  }
+};
+```
+
+### PetWatch Mobile App
+
+Update API base URL in `petwatch-rn/src/config/api.ts`:
+
+```typescript
+// petwatch-rn/src/config/api.ts
+import axios from 'axios';
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+});
+
+// Interceptor to add token to requests
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Export API functions
+export const petApi = {
+  getPets: () => apiClient.get('/pets'),
+  addPet: (petData) => apiClient.post('/pets', petData),
+  getAppointments: () => apiClient.get('/appointments'),
+  bookAppointment: (appointmentData) => apiClient.post('/appointments', appointmentData),
+  getAlerts: () => apiClient.get('/alerts'),
+  reportSymptoms: (petId, symptoms) => apiClient.post(`/pets/${petId}/symptoms`, symptoms),
+  getNearByClinics: (lat, lng, radius = 5) => 
+    apiClient.get(`/clinics/nearby?lat=${lat}&lng=${lng}&radius=${radius}`),
+};
+```
+
+### Super Admin Portal
+
+Update API base URL in `super-admin/src/config/api.ts`:
+
+```typescript
+// super-admin/src/config/api.ts
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:5000/api';
+
+export const apiClient = {
+  // Similar structure as admin portal
+};
+```
+
+### Environment Variables for Frontends
+
+**Admin Portal** (`.env` or `.env.local`):
+```env
+REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_APP_NAME=VetIntel Admin
+```
+
+**PetWatch Mobile** (`.env` or `.env.local`):
+```env
+EXPO_PUBLIC_API_URL=http://localhost:5000/api
+EXPO_PUBLIC_APP_NAME=PetWatch
+```
+
+**Super Admin Portal** (`.env.local`):
+```env
+VITE_API_URL=http://localhost:5000/api
+VITE_APP_NAME=VetIntel Super Admin
+```
+
+---
+
+## Installation & Running
+
+### Prerequisites
+
+- Node.js (v16+)
+- npm or yarn
+- Git
+
+### Clone the repository
 
 ```bash
 git clone https://github.com/ynaamante/vetinel
 cd vetinel
 ```
 
-If you already have the repo locally, just open the root folder in VS Code.
-
-## Install dependencies
-
-Each folder is an independent project, so install dependencies inside the folder you want to run.
-
-### Admin portal
+### Admin Portal
 
 ```bash
 cd admin
 npm install
-```
-
-### PetWatch mobile app
-
-```bash
-cd petwatch-rn
-npm install
-```
-
-### Super Admin Portal Design
-
-```bash
-cd Super_Admin_Portal_Design
-npm install
-```
-
-## Run each folder
-
-Open a separate terminal for each app if you want to run more than one at the same time.
-
-### `admin`
-
-```bash
-cd admin
 npm run dev
 ```
 
-Optional checks:
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-```bash
-npm run build
-npm run lint
-npm run type-check
-```
+**Test Credentials**:
+- Email: `owner@happypaws.com` / Password: `owner123`
+- Email: `doctor@happypaws.com` / Password: `doctor123`
+- Email: `receptionist@happypaws.com` / Password: `receptionist123`
 
-### `petwatch-rn`
+### PetWatch Mobile App
 
 ```bash
 cd petwatch-rn
+npm install
 npm start
 ```
 
-You can also run platform targets directly:
-
+Run on simulator or device:
 ```bash
 npm run android
+# or
 npm run ios
 ```
 
-### `Super_Admin_Portal_Design`
+### Super Admin Portal
 
 ```bash
-cd Super_Admin_Portal_Design
+cd super-admin
+npm install
 npm run dev
 ```
 
-Optional checks:
+Open [http://localhost:5174](http://localhost:5174) in your browser.
+
+### Optional: Build for Production
 
 ```bash
+# Admin Portal
+cd admin
 npm run build
-npm run lint
-npm run type-check
+
+# PetWatch Mobile
+cd petwatch-rn
+npm run build
+
+# Super Admin Portal
+cd super-admin
+npm run build
 ```
 
-## Folder summary
+---
 
-- [admin](admin) contains the web admin interface and supporting pages, components, and styles.
-- [petwatch-rn](petwatch-rn) contains the React Native app, navigation, screens, and theme files.
-- [Super_Admin_Portal_Design](Super_Admin_Portal_Design) contains the super admin portal UI bundle and shared design system assets.
+## System Flow & User Journeys
+
+### Pet Owner Journey (PetWatch Mobile)
+
+1. **Registration** → User creates account with email and password
+2. **Clinic Selection** → User selects preferred veterinary clinic
+3. **Add Pet** → User adds their pet information (name, breed, age, etc.)
+4. **Health Monitoring** → User can:
+   - View pet vaccinations and schedule next doses
+   - Report symptoms and get health alerts
+   - Track deworming schedule
+   - View health history
+5. **Appointments** → User can:
+   - Browse nearby clinics
+   - Book appointments
+   - View upcoming appointments
+   - Receive appointment reminders
+6. **Alerts** → User receives:
+   - Outbreak alerts for detected diseases in area
+   - Vaccination reminders
+   - Appointment reminders
+   - Deworming alerts
+
+### Clinic Staff Journey (Admin Portal)
+
+1. **Login** → Staff authenticates with clinic account
+2. **Dashboard** → View key metrics:
+   - Today's appointments
+   - Patient queue
+   - Disease outbreaks
+   - Billing status
+3. **Appointment Management** → Handle:
+   - View scheduled appointments
+   - Update appointment status
+   - Manage patient queue
+4. **Client Management** → Track:
+   - Client/pet owner information
+   - Pet records
+   - Medical history
+5. **Billing** → Process:
+   - Create billing records
+   - Track payments
+   - Generate invoices
+6. **Monitoring** → Monitor:
+   - Disease outbreaks
+   - Risk levels
+   - Community health trends
+7. **Reporting** → Generate:
+   - Financial reports
+   - Health analytics
+   - Audit trails
+
+### System Administrator Journey (Super Admin Portal)
+
+1. **Login** → Admin authenticates
+2. **Dashboard** → View system overview
+3. **Clinic Management** → Add/edit/remove clinics
+4. **User Management** → Manage system users across all clinics
+5. **Role Management** → Define roles and permissions
+6. **Audit Trail** → Review all system activities
+7. **Settings** → Configure system-wide settings
+
+---
 
 ## Notes
 
 - Do not commit generated folders such as `node_modules`, `dist`, `build`, `.expo`, Android build output, or iOS Pods.
-- If dependency installation fails, retry from the app folder you are working in so the lockfile and package manager state stay local to that project.
+- Always use the provided `.env` configuration files with sensitive information.
+- The backend API endpoints return standardized JSON responses.
+- All date fields should be ISO 8601 formatted (YYYY-MM-DD).
+- Mobile app should handle offline data caching for critical information.
+- Implement proper error handling and user-friendly error messages on all frontends.
+- Use JWT tokens for authentication across all applications.
+- Follow role-based access control (RBAC) for authorization.
+- If dependency installation fails, retry from the app folder so the lockfile stays local to that project.
 #      

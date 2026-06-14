@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams, Link } from 'react-router';
+import { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Building2,
@@ -28,26 +28,22 @@ type ClinicInfo = {
 };
 
 const initialClinicData: ClinicInfo = {
-  id: 1,
-  name: 'Happy Paws Veterinary Clinic',
-  owner: 'Dr. Michael Chen',
-  email: 'michael.chen@happypaws.com',
-  phone: '+1 (555) 123-4567',
-  address: '123 Main Street, San Francisco, CA 94102',
-  registrationDate: '2024-01-15',
+  id: 0,
+  name: '',
+  owner: 'Unknown',
+  email: '',
+  phone: '',
+  address: '',
+  registrationDate: new Date().toISOString(),
   status: 'active',
-  doctors: 8,
-  receptionists: 4,
-  totalStaff: 12,
+  doctors: 0,
+  receptionists: 0,
+  totalStaff: 0,
 };
 
-const staffMembers = [
-  { id: 1, name: 'Dr. Michael Chen', email: 'michael.chen@happypaws.com', role: 'Clinic Owner', status: 'Active', lastLogin: '2026-05-29 10:30 AM' },
-  { id: 2, name: 'Dr. Sarah Martinez', email: 'sarah.martinez@happypaws.com', role: 'Doctor', status: 'Active', lastLogin: '2026-05-29 09:15 AM' },
-  { id: 3, name: 'Dr. James Wilson', email: 'james.wilson@happypaws.com', role: 'Doctor', status: 'Active', lastLogin: '2026-05-28 05:45 PM' },
-  { id: 4, name: 'Emily Taylor', email: 'emily.taylor@happypaws.com', role: 'Receptionist', status: 'Active', lastLogin: '2026-05-29 08:00 AM' },
-  { id: 5, name: 'John Anderson', email: 'john.anderson@happypaws.com', role: 'Receptionist', status: 'Active', lastLogin: '2026-05-29 07:30 AM' },
-];
+// staff members will be loaded from /api/users filtered by clinic
+// initial empty
+// TODO: add dedicated /api/clinics/:id/staff endpoint
 
 export function ClinicDetails() {
   const { id } = useParams();
@@ -55,6 +51,48 @@ export function ClinicDetails() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', owner: '', email: '', phone: '', address: '' });
   const [toast, setToast] = useState<string | null>(null);
+  const [staffMembers, setStaffMembers] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadClinic = async () => {
+      if (!id) return;
+      try {
+        const clinicRes = await fetch(`/api/clinics/${id}`);
+        if (clinicRes.ok) {
+          const clinicData = await clinicRes.json();
+          setClinic({
+            id: clinicData.id,
+            name: clinicData.name,
+            owner: clinicData.owner || 'Unknown',
+            email: clinicData.email || '',
+            phone: clinicData.phone || '',
+            address: clinicData.address || '',
+            registrationDate: clinicData.created_at || new Date().toISOString(),
+            status: clinicData.status || 'active',
+            doctors: clinicData.doctors || 0,
+            receptionists: clinicData.receptionists || 0,
+            totalStaff: clinicData.totalStaff || 0,
+          });
+          // fetch users and filter by clinic id (or name)
+          const usersRes = await fetch('/api/users');
+          if (usersRes.ok) {
+            const users = await usersRes.json();
+            // user model returns clinic name in `clinic` or may include clinic_id; prefer filtering by clinic id if available
+            const filtered = users.filter((u: any) => {
+              if (u.clinic && typeof u.clinic === 'string') return u.clinic === clinicData.name;
+              if (u.clinic_id) return String(u.clinic_id) === String(id);
+              return false;
+            });
+            setStaffMembers(filtered.map((u: any) => ({ id: u.id, name: u.name, email: u.email, role: u.role || 'User', status: u.is_active ? 'Active' : 'Disabled', lastLogin: u.updated_at ? new Date(u.updated_at).toLocaleString() : 'Never' })));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load clinic details:', error);
+      }
+    };
+
+    loadClinic();
+  }, [id]);
 
   function openEdit() {
     setEditForm({ name: clinic.name, owner: clinic.owner, email: clinic.email, phone: clinic.phone, address: clinic.address });
@@ -112,13 +150,6 @@ export function ClinicDetails() {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Clinic Profile</h2>
-          <button
-            onClick={openEdit}
-            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800"
-          >
-            <Edit className="w-4 h-4" />
-            Edit
-          </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {profileFields.map(field => (

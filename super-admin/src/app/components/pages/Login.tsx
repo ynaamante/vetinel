@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { Building2, Eye, EyeOff } from 'lucide-react';
 
 export function Login() {
@@ -9,25 +10,27 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Simple validation
     if (!email || !password) {
       setError('Please enter both email and password');
       return;
     }
 
-    // Mock authentication - in production, this would call an API
-    if (email === 'admin@vetintel.com' && password === 'admin123') {
+    try {
+      const response = await axios.post('/api/login', { email, password });
       localStorage.setItem('vetintel_user', JSON.stringify({
-        email: 'admin@vetintel.com',
-        name: 'Super Admin',
-        role: 'super_admin'
+        email: response.data.email,
+        name: response.data.name,
+        role: 'super_admin',
       }));
+      if (response.data.token) {
+        localStorage.setItem('vetintel_token', response.data.token);
+      }
       navigate('/');
-    } else {
-      setError('Invalid email or password');
+    } catch (error: any) {
+      setError(error.response?.data?.error || 'Invalid email or password');
     }
   };
 
