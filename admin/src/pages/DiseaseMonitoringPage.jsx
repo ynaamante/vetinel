@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
+import { canExportFeature, canInteractWithFeature } from '../utils/permissionUtils';
 
 const DISEASE_OPTIONS = ['Parvovirus', 'Kennel Cough', 'Distemper', 'Giardia', 'Leptospirosis'];
 const TIME_OPTIONS    = ['Last 30 Days', 'Last 60 Days', 'Last 90 Days'];
@@ -191,6 +192,9 @@ export default function DiseaseMonitoringPage({ user }) {
   const [showVacc,  setShowVacc]  = useState(false);
   const [modal,     setModal]     = useState(null);
 
+  const canExportAlert = canExportFeature(user.permissions, user.role, 'Disease Monitoring');
+  const canAlertClinics = canInteractWithFeature(user.permissions, user.role, 'Disease Monitoring');
+
   return (
     <div style={s.main}>
       <Topbar
@@ -203,17 +207,59 @@ export default function DiseaseMonitoringPage({ user }) {
         {/* FILTER BAR */}
         <div style={s.filterBar}>
           <div style={s.filters}>
-            <select style={s.select} value={disease}   onChange={e => setDisease(e.target.value)}>
+            <select
+              disabled={!canExportAlert}
+              style={{
+                ...s.select,
+                background: canExportAlert ? '#f4f6f9' : '#f8fafc',
+                color: canExportAlert ? '#0f1117' : '#94a3b8',
+                cursor: canExportAlert ? 'pointer' : 'not-allowed',
+              }}
+              value={disease}
+              onChange={e => setDisease(e.target.value)}
+            >
               {DISEASE_OPTIONS.map(d => <option key={d}>{d}</option>)}
             </select>
-            <select style={s.select} value={timeRange} onChange={e => setTimeRange(e.target.value)}>
+            <select
+              disabled={!canExportAlert}
+              style={{
+                ...s.select,
+                background: canExportAlert ? '#f4f6f9' : '#f8fafc',
+                color: canExportAlert ? '#0f1117' : '#94a3b8',
+                cursor: canExportAlert ? 'pointer' : 'not-allowed',
+              }}
+              value={timeRange}
+              onChange={e => setTimeRange(e.target.value)}
+            >
               {TIME_OPTIONS.map(t => <option key={t}>{t}</option>)}
             </select>
-            <select style={s.select} value={region}    onChange={e => setRegion(e.target.value)}>
+            <select
+              disabled={!canExportAlert}
+              style={{
+                ...s.select,
+                background: canExportAlert ? '#f4f6f9' : '#f8fafc',
+                color: canExportAlert ? '#0f1117' : '#94a3b8',
+                cursor: canExportAlert ? 'pointer' : 'not-allowed',
+              }}
+              value={region}
+              onChange={e => setRegion(e.target.value)}
+            >
               {REGION_OPTIONS.map(r => <option key={r}>{r}</option>)}
             </select>
           </div>
-          <button style={s.exportBtn}>Export Alert</button>
+          <button
+            style={{
+              ...s.exportBtn,
+              opacity: canExportAlert ? 1 : 0.65,
+              background: canExportAlert ? '#0f1117' : '#f8fafc',
+              color: canExportAlert ? '#fff' : '#94a3b8',
+              border: canExportAlert ? 'none' : '1px solid #cbd5e1',
+              cursor: canExportAlert ? 'pointer' : 'not-allowed',
+            }}
+            disabled={!canExportAlert}
+          >
+            Export Alert
+          </button>
         </div>
 
         {/* OUTBREAK BANNER */}
@@ -229,7 +275,19 @@ export default function DiseaseMonitoringPage({ user }) {
               <div style={s.bannerSub}>Affecting: City Pet, Happy Tails, Paws &amp; Care</div>
             </div>
           </div>
-          <button style={s.alertBtn}>Alert Clinics</button>
+          <button
+            style={{
+              ...s.alertBtn,
+              opacity: canAlertClinics ? 1 : 0.65,
+              background: canAlertClinics ? '#dc2626' : '#f8fafc',
+              color: canAlertClinics ? '#fff' : '#94a3b8',
+              border: canAlertClinics ? 'none' : '1px solid #cbd5e1',
+              cursor: canAlertClinics ? 'pointer' : 'not-allowed',
+            }}
+            disabled={!canAlertClinics}
+          >
+            Alert Clinics
+          </button>
         </div>
 
         {/* GROWTH STATS */}

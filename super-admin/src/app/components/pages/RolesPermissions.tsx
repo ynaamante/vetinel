@@ -50,6 +50,7 @@ const featureCategories = {
   ],
 };
 
+
 // TODO: Fetch from /api/roles
 const initialRoles: Role[] = [];
 
@@ -184,15 +185,16 @@ export function RolesPermissions() {
       return;
     }
 
+    // Require authentication token for changes
+    const token = localStorage.getItem('vetintel_token');
+    if (!token) {
+      alert('You must be logged in to save role changes. Please login and try again.');
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('vetintel_token');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-        console.log('Sending token for role update');
-      } else {
-        console.warn('No token found in localStorage');
-      }
+      headers.Authorization = `Bearer ${token}`;
 
       const requestBody = {
         name: currentRole.name,
@@ -251,10 +253,16 @@ export function RolesPermissions() {
       permissions: defaultPermissions,
     };
 
+    // Require authentication token for creating roles
+    const token = localStorage.getItem('vetintel_token');
+    if (!token) {
+      alert('You must be logged in to create a role. Please login and try again.');
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('vetintel_token');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      headers.Authorization = `Bearer ${token}`;
 
       const response = await fetch('/api/roles', {
         method: 'POST',
@@ -292,10 +300,16 @@ export function RolesPermissions() {
       description: editRoleDescription,
     };
 
+    // Require authentication token for editing roles
+    const token = localStorage.getItem('vetintel_token');
+    if (!token) {
+      alert('You must be logged in to edit roles. Please login and try again.');
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('vetintel_token');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      headers.Authorization = `Bearer ${token}`;
 
       const response = await fetch(`/api/roles/${role.id}`, {
         method: 'PUT',
@@ -525,6 +539,7 @@ export function RolesPermissions() {
                             (type) => (
                               <td key={type} className="px-6 py-4 text-center">
                                 <button
+                                  type="button"
                                   onClick={() => togglePermission(feature, type)}
                                   className={`w-6 h-6 rounded flex items-center justify-center transition-all hover:scale-110 ${
                                     permissions[type]

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
+import { canExportFeature, canInteractWithFeature } from '../utils/permissionUtils';
 
 /* ── DATA ── */
 const SYNC_HISTORY = [
@@ -38,7 +39,12 @@ export function DataSyncPage({ user }) {
   const [manualSync, setManualSync] = useState(false);
   const [autoSync,   setAutoSync]   = useState(true);
 
+  const canChangeSync = canInteractWithFeature(user.permissions, user.role, 'Data Sync Status');
+  const canManualSync = canInteractWithFeature(user.permissions, user.role, 'Data Sync Status');
+  const canChangeInterval = canInteractWithFeature(user.permissions, user.role, 'Data Sync Status');
+
   function triggerManualSync() {
+    if (!canManualSync) return;
     setManualSync(true);
     setTimeout(() => setManualSync(false), 2000);
   }
@@ -95,11 +101,28 @@ export function DataSyncPage({ user }) {
           <div style={s.controlRow}>
             <div>
               <div style={s.controlLabel}>Automatic synchronization every 6 hours</div>
-              <a href="#" style={s.changeLink} onClick={e => e.preventDefault()}>Change interval →</a>
+              <a
+                href="#"
+                style={{
+                  ...s.changeLink,
+                  opacity: canChangeInterval ? 1 : 0.45,
+                  color: canChangeInterval ? '#1d4ed8' : '#94a3b8',
+                  pointerEvents: canChangeInterval ? 'auto' : 'none',
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!canChangeInterval) return;
+                }}
+              >Change interval →</a>
             </div>
             <div
-              style={{ ...s.toggle, background: autoSync ? '#0f1117' : '#e2e8f0' }}
-              onClick={() => setAutoSync(v => !v)}
+              style={{
+                ...s.toggle,
+                background: canChangeSync ? (autoSync ? '#0f1117' : '#e2e8f0') : '#e2e8f0',
+                opacity: canChangeSync ? 1 : 0.45,
+                cursor: canChangeSync ? 'pointer' : 'not-allowed',
+              }}
+              onClick={() => canChangeSync && setAutoSync(v => !v)}
             >
               <div style={{
                 ...s.toggleThumb,
@@ -112,8 +135,16 @@ export function DataSyncPage({ user }) {
 
           <div style={{ paddingTop: 14 }}>
             <button
-              style={{ ...s.manualBtn, opacity: manualSync ? 0.7 : 1 }}
+              style={{
+                ...s.manualBtn,
+                opacity: canManualSync ? (manualSync ? 0.7 : 1) : 0.65,
+                background: canManualSync ? '#fff' : '#f8fafc',
+                color: canManualSync ? '#0f1117' : '#94a3b8',
+                border: canManualSync ? '1px solid #e8ecf0' : '1px solid #cbd5e1',
+                cursor: canManualSync ? 'pointer' : 'not-allowed',
+              }}
               onClick={triggerManualSync}
+              disabled={!canManualSync}
             >
               <span style={{ width: 14, height: 14, display: 'flex' }}>{Icons.refresh}</span>
               {manualSync ? 'Syncing…' : 'Manual Sync'}

@@ -38,7 +38,8 @@ function dedupeRoles(rows) {
 
   return Object.values(buckets)
     .map((group) => {
-      const canonicalRole = group.find((role) => canonicalRoleNames.has(role.name.toLowerCase()));
+      // Prefer a role whose canonical key is in the canonicalRoleNames set
+      const canonicalRole = group.find((role) => canonicalRoleNames.has(roleCanonicalKey(role.name)));
       const selectedRole = canonicalRole || group[0];
       return {
         ...selectedRole,
@@ -55,6 +56,17 @@ async function roleNameExists(name, excludeId = null) {
   return result.rows.some((row) => {
     if (excludedId != null && row.id === excludedId) return false;
     return roleCanonicalKey(row.name) === canonicalKey;
+  });
+}
+
+// Exact (case-insensitive) name collision check — ignores synonym canonicalization.
+async function roleNameExistsExact(name, excludeId = null) {
+  const lower = (name || '').trim().toLowerCase();
+  const excludedId = excludeId != null ? Number(excludeId) : null;
+  const result = await db.query('SELECT id, name FROM roles');
+  return result.rows.some((row) => {
+    if (excludedId != null && row.id === excludedId) return false;
+    return (row.name || '').trim().toLowerCase() === lower;
   });
 }
 
@@ -113,7 +125,7 @@ exports.create = async (req, res, next) => {
     if (!name) return res.status(400).json({ error: 'name required' });
     const normalizedName = normalizeRoleName(name);
     const canonicalName = roleCanonicalKey(name);
-    if (canonicalName === 'super_admin') {
+    if (canonicalName === 'super_admin' || canonicalName === 'admin') {
       return res.status(400).json({ error: 'Role super_admin is not allowed' });
     }
     if (await roleNameExists(canonicalName)) return res.status(409).json({ error: 'Role already exists' });
@@ -175,12 +187,13 @@ exports.update = async (req, res, next) => {
     let result;
     const normalizedName = name ? normalizeRoleName(name) : null;
     const canonicalName = name ? roleCanonicalKey(name) : null;
-    if (canonicalName === 'super_admin') {
-      return res.status(400).json({ error: 'Role super_admin is not allowed' });
+    if (canonicalName === 'super_admin' || canonicalName === 'admin') {
+      return res.status(400).json({ error: 'Role super_admin/admin is not allowed' });
     }
     // Only check for duplicate role names when the name is being changed.
-    const nameChanged = name && before.rows[0].name.trim().toLowerCase() !== name.trim().toLowerCase();
-    if (canonicalName && nameChanged && await roleNameExists(canonicalName, numericId)) {
+const nameChanged = name && roleCanonicalKey(before.rows[0].name) !== roleCanonicalKey(name);   
+    // are not blocked by canonical synonym collisions.
+    if (canonicalName && nameChanged && await roleNameExistsExact(name, numericId)) {
       return res.status(409).json({ error: 'Role already exists' });
     }
 
@@ -222,7 +235,8 @@ exports.update = async (req, res, next) => {
     });
 
     res.json(role);
-  } catch (e) {
+ } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Role already exists' });
     next(e);
   }
 };

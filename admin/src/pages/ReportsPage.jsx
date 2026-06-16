@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
+import { canExportFeature, canInteractWithFeature } from '../utils/permissionUtils';
 
 /* ── DATA ── */
 const REPORT_CARDS = [
@@ -76,7 +77,12 @@ export function ReportsPage({ user }) {
   const [format,     setFormat]     = useState('PDF');
   const [generating, setGenerating] = useState(null);
 
+  const canGenerateReport = canInteractWithFeature(user.permissions, user.role, 'Reports');
+  const canBuildCustomReport = canInteractWithFeature(user.permissions, user.role, 'Reports');
+  const canManageReportActions = canInteractWithFeature(user.permissions, user.role, 'Reports');
+
   function handleGenerate(title) {
+    if (!canGenerateReport) return;
     setGenerating(title);
     setTimeout(() => setGenerating(null), 1800);
   }
@@ -109,9 +115,11 @@ export function ReportsPage({ user }) {
               <button
                 style={{
                   ...s.generateBtn,
-                  opacity: generating === r.title ? 0.7 : 1,
+                  opacity: !canGenerateReport ? 0.45 : generating === r.title ? 0.7 : 1,
+                  cursor: canGenerateReport ? 'pointer' : 'not-allowed',
                 }}
                 onClick={() => handleGenerate(r.title)}
+                disabled={!canGenerateReport}
               >
                 <span style={{ width: 14, height: 14, display: 'flex' }}>{Icons.file}</span>
                 {generating === r.title ? 'Generating…' : 'Generate Report'}
@@ -126,16 +134,56 @@ export function ReportsPage({ user }) {
           <div style={s.cardDesc}>Create a customized report with specific parameters</div>
 
           <div style={s.builderRow}>
-            <select style={s.select} value={reportType} onChange={e => setReportType(e.target.value)}>
+            <select
+              disabled={!canBuildCustomReport}
+              style={{
+                ...s.select,
+                background: canBuildCustomReport ? '#f4f6f9' : '#f8fafc',
+                color: canBuildCustomReport ? '#0f1117' : '#94a3b8',
+                cursor: canBuildCustomReport ? 'pointer' : 'not-allowed',
+              }}
+              value={reportType}
+              onChange={e => setReportType(e.target.value)}
+            >
               {REPORT_TYPES.map(r => <option key={r}>{r}</option>)}
             </select>
-            <select style={s.select} value={disease}    onChange={e => setDisease(e.target.value)}>
+            <select
+              disabled={!canBuildCustomReport}
+              style={{
+                ...s.select,
+                background: canBuildCustomReport ? '#f4f6f9' : '#f8fafc',
+                color: canBuildCustomReport ? '#0f1117' : '#94a3b8',
+                cursor: canBuildCustomReport ? 'pointer' : 'not-allowed',
+              }}
+              value={disease}
+              onChange={e => setDisease(e.target.value)}
+            >
               {DISEASE_OPTS.map(d => <option key={d}>{d}</option>)}
             </select>
-            <select style={s.select} value={timeRange}  onChange={e => setTimeRange(e.target.value)}>
+            <select
+              disabled={!canBuildCustomReport}
+              style={{
+                ...s.select,
+                background: canBuildCustomReport ? '#f4f6f9' : '#f8fafc',
+                color: canBuildCustomReport ? '#0f1117' : '#94a3b8',
+                cursor: canBuildCustomReport ? 'pointer' : 'not-allowed',
+              }}
+              value={timeRange}
+              onChange={e => setTimeRange(e.target.value)}
+            >
               {TIME_OPTS.map(t => <option key={t}>{t}</option>)}
             </select>
-            <select style={s.select} value={format}     onChange={e => setFormat(e.target.value)}>
+            <select
+              disabled={!canBuildCustomReport}
+              style={{
+                ...s.select,
+                background: canBuildCustomReport ? '#f4f6f9' : '#f8fafc',
+                color: canBuildCustomReport ? '#0f1117' : '#94a3b8',
+                cursor: canBuildCustomReport ? 'pointer' : 'not-allowed',
+              }}
+              value={format}
+              onChange={e => setFormat(e.target.value)}
+            >
               {FORMAT_OPTS.map(f => <option key={f}>{f}</option>)}
             </select>
           </div>
@@ -145,7 +193,19 @@ export function ReportsPage({ user }) {
             <div style={s.previewText}>{previewText}</div>
           </div>
 
-          <button style={s.buildBtn}>Build Custom Report</button>
+          <button
+            style={{
+              ...s.buildBtn,
+              opacity: canBuildCustomReport ? 1 : 0.65,
+              background: canBuildCustomReport ? '#0f1117' : '#f8fafc',
+              color: canBuildCustomReport ? '#fff' : '#94a3b8',
+              border: canBuildCustomReport ? 'none' : '1px solid #cbd5e1',
+              cursor: canBuildCustomReport ? 'pointer' : 'not-allowed',
+            }}
+            disabled={!canBuildCustomReport}
+          >
+            Build Custom Report
+          </button>
         </div>
 
         {/* RECENT REPORTS */}
@@ -173,9 +233,9 @@ export function ReportsPage({ user }) {
               <div style={{ ...s.td, color: '#64748b', fontSize: '.78rem' }}>{r.date}</div>
               <div style={{ ...s.td, color: '#64748b', fontSize: '.78rem' }}>{r.size}</div>
               <div style={{ ...s.td, gap: 12 }}>
-                <ActionIcon icon="download" />
-                <ActionIcon icon="share" />
-                <ActionIcon icon="trash" color="#dc2626" />
+                <ActionIcon disabled={!canManageReportActions} icon="download" />
+                <ActionIcon disabled={!canManageReportActions} icon="share" />
+                <ActionIcon disabled={!canManageReportActions} icon="trash" color="#dc2626" />
               </div>
             </div>
           ))}
@@ -186,7 +246,7 @@ export function ReportsPage({ user }) {
   );
 }
 
-function ActionIcon({ icon, color = '#64748b' }) {
+function ActionIcon({ icon, color = '#64748b', disabled = false }) {
   const ICONS = {
     download: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -207,7 +267,14 @@ function ActionIcon({ icon, color = '#64748b' }) {
     ),
   };
   return (
-    <span style={{ cursor: 'pointer', display: 'flex', opacity: 0.75 }}>
+    <span
+      style={{
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        display: 'flex',
+        opacity: disabled ? 0.35 : 0.75,
+        pointerEvents: disabled ? 'none' : 'auto',
+      }}
+    >
       {ICONS[icon]}
     </span>
   );

@@ -281,7 +281,7 @@ export function AuditTrail() {
                           severityColors[log.severity as keyof typeof severityColors]
                         }`}
                       >
-                        <log.icon className="w-5 h-5" />
+                        <FileText className="w-5 h-5" />
                       </div>
                       <div className="text-sm font-medium text-gray-900">
                         {log.action}

@@ -1,4 +1,5 @@
 import { Icons } from '../icons';
+import { hasPermissionForFeature } from '../utils/permissionUtils';
 
 const DISEASE_NAV = [
   { id: 'dashboard', label: 'Intelligence Dashboard', icon: 'grid',     section: 'Disease Intelligence' },
@@ -29,14 +30,22 @@ const RECEPTIONIST_NAV = [
 ];
 
 export default function Sidebar({ active, setPage, user, onLogout }) {
-  const roleName = String(user.role || '').toLowerCase();
-  const isOwner = roleName === 'clinic_owner';
+  const rawRole = String(user.role || '').trim().toLowerCase();
+  const roleName = rawRole.replace(/[-\s]+/g, '_');
+  const isOwner = roleName === 'clinic_owner' || roleName === 'super_admin';
   const isReceptionist = roleName === 'receptionist';
 
+  const permissions = user.permissions || {};
+
+  const canAccessPage = (feature) => {
+    if (roleName === 'super_admin') return true;
+    return hasPermissionForFeature(permissions, user.role, feature);
+  };
+
   const NAV = [
-  ...DISEASE_NAV,
-  ...(isOwner ? ADMIN_NAV : isReceptionist ? RECEPTIONIST_NAV : DOCTOR_NAV),
-];
+    ...DISEASE_NAV,
+    ...(isOwner ? ADMIN_NAV : isReceptionist ? RECEPTIONIST_NAV : DOCTOR_NAV),
+  ].filter((item) => canAccessPage(item.label));
   return (
     <div style={s.sidebar}>
       <div style={s.brand}>VetIntel</div>

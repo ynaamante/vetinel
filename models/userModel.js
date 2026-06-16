@@ -14,6 +14,7 @@ module.exports = {
        FROM users u
        LEFT JOIN clinics c ON u.clinic_id = c.id
        LEFT JOIN roles r ON u.role_id = r.id
+       WHERE COALESCE(u.is_active, true) = true
        ORDER BY u.id DESC`
     );
     return res.rows;
