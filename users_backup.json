@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "name": "Test User",
+    "email": "test@example.com",
+    "role_id": null,
+    "clinic_id": null
+  },
+  {
+    "id": 2,
+    "name": "Super Admin",
+    "email": "admin@vetintel.com",
+    "role_id": null,
+    "clinic_id": null
+  },
+  {
+    "id": 3,
+    "name": "fafaf",
+    "email": "ahsas@gmail.com",
+    "role_id": null,
+    "clinic_id": 3
+  },
+  {
+    "id": 4,
+    "name": "hannah kate",
+    "email": "hannahkate@gmail.com",
+    "role_id": null,
+    "clinic_id": 3
+  },
+  {
+    "id": 6,
+    "name": "dr hannah kate",
+    "email": "hannahkate12@gmail.com",
+    "role_id": 16,
+    "clinic_id": 4
+  },
+  {
+    "id": 7,
+    "name": "alexis gregorio",
+    "email": "aalexis25@gmail.com",
+    "role_id": 17,
+    "clinic_id": 4
+  }
+]

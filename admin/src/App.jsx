@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './styles/global.css';
 import Sidebar from './components/Sidebar';
 import LoginPage from './pages/LoginPage';
@@ -43,13 +43,42 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState('dashboard');
 
+  useEffect(() => {
+    const token = localStorage.getItem('vetintel_token');
+    const userData = localStorage.getItem('vetintel_user');
+    if (token && userData) {
+      try {
+        const parsed = JSON.parse(userData);
+        setUser({ ...parsed, token });
+      } catch (e) {
+        localStorage.removeItem('vetintel_user');
+        localStorage.removeItem('vetintel_token');
+      }
+    }
+  }, []);
+
+  function handleLogin(userData) {
+    const { token, ...rest } = userData;
+    localStorage.setItem('vetintel_token', token);
+    localStorage.setItem('vetintel_user', JSON.stringify(rest));
+    setUser({ ...rest, token });
+    setPage('dashboard');
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('vetintel_token');
+    localStorage.removeItem('vetintel_user');
+    setUser(null);
+    setPage('dashboard');
+  }
+
   if (!user) {
-    return <LoginPage onLogin={u => { setUser(u); setPage('dashboard'); }} />;
+    return <LoginPage onLogin={handleLogin} />;
   }
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      <Sidebar active={page} setPage={setPage} user={user} onLogout={() => setUser(null)} />
+      <Sidebar active={page} setPage={setPage} user={user} onLogout={handleLogout} />
 
       {/* Intelligence pages */}
       {page === 'dashboard'         && <DashboardPage user={user} />}

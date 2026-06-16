@@ -19,7 +19,22 @@ module.exports = {
     return res.rows;
   },
   async getByEmail(email) {
-    const res = await db.query('SELECT id, name, email, password_hash FROM users WHERE email = $1', [email]);
+    const res = await db.query(
+      `SELECT u.id,
+              u.name,
+              u.email,
+              u.password_hash,
+              u.is_active,
+              u.clinic_id,
+              u.role_id,
+              c.name AS clinic_name,
+              r.name AS role_name
+       FROM users u
+       LEFT JOIN clinics c ON u.clinic_id = c.id
+       LEFT JOIN roles r ON u.role_id = r.id
+       WHERE u.email = $1`,
+      [email]
+    );
     return res.rows[0];
   },
   async create({ name, email, password, clinic_id, role_id }) {

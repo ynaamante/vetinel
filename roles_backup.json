@@ -1,0 +1,316 @@
+[
+  {
+    "id": 24,
+    "name": "Clinic Owner",
+    "permissions": {
+      "users": true,
+      "Reports": {
+        "edit": true,
+        "view": true,
+        "create": false,
+        "delete": true,
+        "export": true
+      },
+      "clinics": true,
+      "invoices": true,
+      "Audit Trail": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Pet Profiles": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "appointments": true,
+      "Patient Queue": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Clinic Overview": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Medical Records": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Risk Monitoring": {
+        "edit": true,
+        "view": true,
+        "create": false,
+        "delete": true,
+        "export": true
+      },
+      "Data Sync Status": {
+        "edit": true,
+        "view": true,
+        "create": false,
+        "delete": true,
+        "export": true
+      },
+      "Client Management": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Treatment Records": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Billing & Payments": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Disease Monitoring": {
+        "edit": true,
+        "view": true,
+        "create": false,
+        "delete": true,
+        "export": true
+      },
+      "Community Analytics": {
+        "edit": true,
+        "view": true,
+        "create": false,
+        "delete": true,
+        "export": true
+      },
+      "Vaccination Records": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Financial Monitoring": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Due Dates & Reminders": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Appointment Management": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Intelligence Dashboard": {
+        "edit": true,
+        "view": true,
+        "create": false,
+        "delete": true,
+        "export": true
+      },
+      "User & Role Management": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      }
+    },
+    "created_at": "2026-06-16T04:54:44.606Z",
+    "is_system_role": false
+  },
+  {
+    "id": 25,
+    "name": "Doctor",
+    "permissions": {
+      "Reports": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": true
+      },
+      "Pet Profiles": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "appointments": true,
+      "prescriptions": true,
+      "health_records": true,
+      "Medical Records": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Risk Monitoring": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": true
+      },
+      "Data Sync Status": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": true
+      },
+      "Treatment Records": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Disease Monitoring": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": true
+      },
+      "Community Analytics": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": true
+      },
+      "Vaccination Records": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Intelligence Dashboard": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": true
+      }
+    },
+    "created_at": "2026-06-16T04:54:44.606Z",
+    "is_system_role": false
+  },
+  {
+    "id": 26,
+    "name": "Receptionist",
+    "permissions": {
+      "Reports": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": false
+      },
+      "clients": true,
+      "invoices": true,
+      "appointments": true,
+      "Patient Queue": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Risk Monitoring": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": false
+      },
+      "Data Sync Status": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": false
+      },
+      "Client Management": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Billing & Payments": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Disease Monitoring": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": false
+      },
+      "Community Analytics": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": false
+      },
+      "Due Dates & Reminders": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Appointment Management": {
+        "edit": true,
+        "view": true,
+        "create": true,
+        "delete": true,
+        "export": true
+      },
+      "Intelligence Dashboard": {
+        "edit": false,
+        "view": true,
+        "create": false,
+        "delete": false,
+        "export": false
+      }
+    },
+    "created_at": "2026-06-16T04:54:44.606Z",
+    "is_system_role": false
+  }
+]

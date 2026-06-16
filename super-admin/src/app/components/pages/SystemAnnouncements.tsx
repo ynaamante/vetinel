@@ -10,25 +10,137 @@ const priorityColors = {
 export function SystemAnnouncements() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [targetAudience, setTargetAudience] = useState('All Clinics');
+  const [priority, setPriority] = useState('low');
+  const [editingAnnouncement, setEditingAnnouncement] = useState<any>(null);
+
+  const resetForm = () => {
+    setTitle('');
+    setMessage('');
+    setTargetAudience('All Clinics');
+    setPriority('low');
+    setEditingAnnouncement(null);
+  };
+
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await fetch('/api/announcements');
+      if (!response.ok) throw new Error('Failed to fetch announcements');
+      const data = await response.json();
+      setAnnouncements(
+        (data || []).map((announcement: any) => ({
+          ...announcement,
+          status: announcement.active ? 'active' : 'draft',
+          message: announcement.description || '',
+          targetAudience: announcement.targetAudience || 'All Clinics',
+          createdBy: announcement.createdBy || 'Admin',
+        }))
+      );
+    } catch (error) {
+      console.error('Failed to fetch announcements:', error);
+    }
+  };
 
   useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/announcements');
-        if (!response.ok) throw new Error('Failed to fetch announcements');
-        const data = await response.json();
-        setAnnouncements(data || []);
-      } catch (error) {
-        console.error('Failed to fetch announcements:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAnnouncements();
   }, []);
+
+  const openCreateModal = () => {
+    resetForm();
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (announcement: any) => {
+    setEditingAnnouncement(announcement);
+    setTitle(announcement.title || '');
+    setMessage(announcement.description || '');
+    setPriority(announcement.priority || 'low');
+    setShowCreateModal(true);
+  };
+
+  const saveAnnouncement = async (publish: boolean) => {
+    if (!title.trim()) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const payload = {
+        title,
+        description: message,
+        priority,
+        active: publish,
+      };
+
+      const url = editingAnnouncement
+        ? `/api/announcements/${editingAnnouncement.id}`
+        : '/api/announcements';
+      const method = editingAnnouncement ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Announcement save failed:', data);
+        return;
+      }
+
+      const saved = await response.json();
+      const normalized = {
+        ...saved,
+        status: saved.active ? 'active' : 'draft',
+        message: saved.description || '',
+        targetAudience: editingAnnouncement ? editingAnnouncement.targetAudience || 'All Clinics' : targetAudience,
+        createdBy: saved.createdBy || 'Admin',
+      };
+
+      setAnnouncements((prev) => {
+        if (editingAnnouncement) {
+          return prev.map((item) => (item.id === normalized.id ? normalized : item));
+        }
+        return [normalized, ...prev];
+      });
+
+      resetForm();
+      setShowCreateModal(false);
+    } catch (error) {
+      console.error('Failed to save announcement:', error);
+    }
+  };
+
+  const deleteAnnouncement = async (id: number) => {
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/announcements/${id}`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Failed to delete announcement:', data);
+        return;
+      }
+
+      setAnnouncements((prev) => prev.filter((announcement) => announcement.id !== id));
+    } catch (error) {
+      console.error('Failed to delete announcement:', error);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -43,7 +155,7 @@ export function SystemAnnouncements() {
           </p>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={openCreateModal}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -155,10 +267,16 @@ export function SystemAnnouncements() {
                 </div>
               </div>
               <div className="flex gap-2 ml-4">
-                <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+                <button
+                  onClick={() => openEditModal(announcement)}
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
                   <Edit className="w-5 h-5" />
                 </button>
-                <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                <button
+                  onClick={() => deleteAnnouncement(announcement.id)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                >
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
@@ -182,6 +300,8 @@ export function SystemAnnouncements() {
                   </label>
                   <input
                     type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter announcement title"
                   />
@@ -192,6 +312,8 @@ export function SystemAnnouncements() {
                   </label>
                   <textarea
                     rows={4}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter announcement message"
                   />
@@ -201,7 +323,11 @@ export function SystemAnnouncements() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Target Audience
                     </label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <select
+                      value={targetAudience}
+                      onChange={(e) => setTargetAudience(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
                       <option>All Clinics</option>
                       <option>Clinic Owners</option>
                       <option>Doctors</option>
@@ -213,26 +339,36 @@ export function SystemAnnouncements() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Priority
                     </label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                      <option>Low</option>
-                      <option>Medium</option>
-                      <option>High</option>
+                    <select
+                      value={priority}
+                      onChange={(e) => setPriority(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
                     </select>
                   </div>
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    resetForm();
+                    setShowCreateModal(false);
+                  }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>
-                <button className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                <button
+                  onClick={() => saveAnnouncement(false)}
+                  className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                >
                   Save as Draft
                 </button>
                 <button
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => saveAnnouncement(true)}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   Publish

@@ -18,6 +18,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE TABLE IF NOT EXISTS clinics (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
+  owner TEXT,
   slug TEXT UNIQUE,
   address TEXT,
   phone TEXT,
@@ -269,6 +270,8 @@ CREATE TABLE IF NOT EXISTS system_announcements (
   title TEXT NOT NULL,
   description TEXT,
   priority TEXT DEFAULT 'normal',
+  target_audience TEXT DEFAULT 'All Clinics',
+  created_by TEXT DEFAULT 'Admin',
   active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
@@ -301,6 +304,15 @@ CREATE INDEX IF NOT EXISTS idx_clients_clinic ON clients (clinic_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_client ON invoices (client_id);
 
 -- Example: initial roles
+-- Note: is_system_role column is added by server.js migration if needed
 INSERT INTO roles (name, permissions)
-SELECT 'admin', '{"all":true}'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM roles WHERE name='admin');
+SELECT 'clinic_owner', '{"clinics":true,"users":true,"appointments":true,"invoices":true}'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM roles WHERE lower(name)='clinic_owner');
+
+INSERT INTO roles (name, permissions)
+SELECT 'doctor', '{"appointments":true,"health_records":true,"prescriptions":true}'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM roles WHERE lower(name)='doctor');
+
+INSERT INTO roles (name, permissions)
+SELECT 'receptionist', '{"appointments":true,"clients":true,"invoices":true}'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM roles WHERE lower(name)='receptionist');

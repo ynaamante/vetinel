@@ -58,15 +58,15 @@ function Calendar({
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
-      }}
+      } as any}
       components={{
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("size-4", className)} {...props} />
+        IconLeft: ({ className, ...props }: React.ComponentProps<typeof ChevronLeft>) => (
+          <ChevronLeft className={cn("size-4", className)} {...(props as any)} />
         ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("size-4", className)} {...props} />
+        IconRight: ({ className, ...props }: React.ComponentProps<typeof ChevronRight>) => (
+          <ChevronRight className={cn("size-4", className)} {...(props as any)} />
         ),
-      }}
+      } as any}
       {...props}
     />
   );

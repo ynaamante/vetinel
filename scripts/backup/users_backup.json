@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "name": "Super Admin",
+    "email": "admin@vetintel.com",
+    "role_id": null,
+    "clinic_id": null
+  },
+  {
+    "id": 2,
+    "name": "Alexis Gregorio",
+    "email": "hannahqt22222@gmail.com",
+    "role_id": 2,
+    "clinic_id": 1
+  },
+  {
+    "id": 3,
+    "name": "Alexis Gregorio",
+    "email": "iambtchybest@gmail.com",
+    "role_id": 6,
+    "clinic_id": 2
+  }
+]

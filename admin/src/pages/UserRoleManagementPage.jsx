@@ -95,6 +95,8 @@ export default function UserRoleManagementPage({ user }) {
   const [roleFilter, setRole] = useState('All Roles');
   const [statusFilter, setStatus] = useState('All Status');
   const [showAdd, setShowAdd] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState({ id: '', name: '', email: '', role: 'doctor', status: 'Active' });
 
   const counts = {
     active: users.filter(u => u.status === 'Active').length,
@@ -118,6 +120,27 @@ export default function UserRoleManagementPage({ user }) {
       lastLogin: '—',
     }]);
   };
+
+  const openEdit = user => {
+    setEditForm({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+    });
+    setShowEdit(true);
+  };
+
+  const handleUpdate = () => {
+    if (!editForm.name || !editForm.email) return;
+    setUsers(prev => prev.map(u =>
+      u.id === editForm.id ? { ...u, name: editForm.name, email: editForm.email, role: editForm.role, status: editForm.status } : u
+    ));
+    setShowEdit(false);
+  };
+
+  const setEditField = key => e => setEditForm(f => ({ ...f, [key]: e.target.value }));
 
   const handleDeactivate = id => {
     setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === 'Active' ? 'Inactive' : 'Active' } : u));
@@ -195,7 +218,7 @@ export default function UserRoleManagementPage({ user }) {
                   <td style={{ ...s.td, color: '#64748b' }}>{u.lastLogin}</td>
                   <td style={s.td}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <button style={s.iconBtn} title="Edit">
+                      <button style={s.iconBtn} title="Edit" onClick={() => openEdit(u)}>
                         <span style={{ width: 15, height: 15, display: 'flex', color: '#64748b' }}>{Icons.edit || Icons.settings}</span>
                       </button>
                       <button style={s.iconBtn} title={u.status === 'Active' ? 'Deactivate' : 'Activate'} onClick={() => handleDeactivate(u.id)}>
@@ -217,7 +240,62 @@ export default function UserRoleManagementPage({ user }) {
       </div>
 
       {showAdd && <AddUserModal onClose={() => setShowAdd(false)} onAdd={handleAdd} />}
+      {showEdit && (
+        <EditUserModal
+          user={editForm}
+          onClose={() => setShowEdit(false)}
+          onSave={handleUpdate}
+          onChange={setEditField}
+        />
+      )}
     </div>
+  );
+}
+
+function EditUserModal({ user, onClose, onSave, onChange }) {
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.35)', zIndex: 100 }} />
+      <div style={m.panel}>
+        <div style={m.header}>
+          <div style={m.headerTitle}>Edit User</div>
+          <button style={m.closeBtn} onClick={onClose}>
+            <span style={{ width: 18, height: 18, display: 'flex', color: '#64748b' }}>{Icons.close}</span>
+          </button>
+        </div>
+        <div style={m.divider} />
+        <div style={m.body}>
+          <div style={m.field}>
+            <label style={m.label}>Full Name</label>
+            <input style={m.input} placeholder="e.g. Dr. John Smith" value={user.name} onChange={onChange('name')} />
+          </div>
+          <div style={m.field}>
+            <label style={m.label}>Email Address</label>
+            <input style={m.input} placeholder="email@happypaws.com" value={user.email} onChange={onChange('email')} />
+          </div>
+          <div style={m.field}>
+            <label style={m.label}>Role</label>
+            <select style={m.input} value={user.role} onChange={onChange('role')}>
+              <option value="owner">Owner</option>
+              <option value="doctor">Doctor</option>
+              <option value="receptionist">Receptionist</option>
+            </select>
+          </div>
+          <div style={m.field}>
+            <label style={m.label}>Status</label>
+            <select style={m.input} value={user.status} onChange={onChange('status')}>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div style={m.divider} />
+        <div style={m.footer}>
+          <button style={m.secondaryBtn} onClick={onClose}>Cancel</button>
+          <button style={m.primaryBtn} onClick={onSave}>Save Changes</button>
+        </div>
+      </div>
+    </>
   );
 }
 

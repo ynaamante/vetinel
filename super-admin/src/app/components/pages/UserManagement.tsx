@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search,
   Users,
@@ -36,9 +37,6 @@ type ArchivedUser = User & {
   expiresAt: Date;
 };
 
-// TODO: Fetch from /api/users
-const roles = ['Clinic Owner', 'Doctor', 'Receptionist', 'Nurse', 'Admin'];
-
 function daysLeft(expiresAt: Date) {
   const ms = expiresAt.getTime() - Date.now();
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
@@ -57,10 +55,14 @@ export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [archived, setArchived] = useState<ArchivedUser[]>([]);
   const [availableClinics, setAvailableClinics] = useState<string[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedClinic, setSelectedClinic] = useState('all');
   const [showActionMenu, setShowActionMenu] = useState<number | null>(null);
+  const [actionMenuRect, setActionMenuRect] = useState<DOMRect | null>(null);
+  const actionButtonsRef = useRef<Record<number, HTMLButtonElement | null>>({});
+  const actionMenuContentRef = useRef<HTMLDivElement | null>(null);
 
   const clinicExists = (clinicName: string) => availableClinics.includes(clinicName);
   const [activeTab, setActiveTab] = useState<'users' | 'archive'>('users');
@@ -81,9 +83,7 @@ export function UserManagement() {
   const [newRole, setNewRole] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [createForm, setCreateForm] = useState({ name: '', email: '', clinic: '', role: '' });
-
-  const actionMenuRef = useRef<HTMLDivElement>(null);
+  const [createForm, setCreateForm] = useState({ name: '', email: '', clinic: '', role: '', password: '' });
 
   // Fetch users from API on mount
   useEffect(() => {
@@ -119,8 +119,20 @@ export function UserManagement() {
       }
     };
 
+    const fetchRoles = async () => {
+      try {
+        const response = await fetch('/api/roles');
+        if (!response.ok) throw new Error('Failed to fetch roles');
+        const data = await response.json();
+        setAvailableRoles(data.map((role: any) => role.name));
+      } catch (error) {
+        console.error('Failed to fetch roles:', error);
+      }
+    };
+
     fetchUsers();
     fetchClinics();
+    fetchRoles();
   }, []);
 
   // Purge expired archived users
@@ -134,13 +146,34 @@ export function UserManagement() {
   // Close action menu on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
-        setShowActionMenu(null);
+      if (
+        actionMenuContentRef.current?.contains(e.target as Node) ||
+        Object.values(actionButtonsRef.current).some(button => button?.contains(e.target as Node))
+      ) {
+        return;
       }
+      setShowActionMenu(null);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
+  useEffect(() => {
+    if (showActionMenu === null) return;
+    function updatePosition() {
+      const button = actionButtonsRef.current[showActionMenu as number];
+      if (button) {
+        setActionMenuRect(button.getBoundingClientRect());
+      }
+    }
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [showActionMenu]);
 
   function showToast(message: string, type: 'success' | 'error' = 'success') {
     setToast({ message, type });
@@ -166,11 +199,50 @@ export function UserManagement() {
     setShowActionMenu(null);
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (!editUser) return;
-    setUsers(prev => prev.map(u => u.id === editUser.id ? { ...u, ...editForm } : u));
-    setEditUser(null);
-    showToast('User updated successfully.');
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/users/${editUser.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          name: editForm.name,
+          email: editForm.email,
+          clinic_name: editForm.clinic,
+          role_name: editForm.role,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to update user.', 'error');
+        return;
+      }
+
+      const updatedUser = await response.json();
+      setUsers(prev => prev.map(u =>
+        u.id === updatedUser.id
+          ? {
+              ...u,
+              name: updatedUser.name,
+              email: updatedUser.email,
+              clinic: updatedUser.clinic,
+              role: updatedUser.role,
+              status: updatedUser.is_active ? 'Active' : 'Disabled',
+            }
+          : u
+      ));
+      setEditUser(null);
+      showToast('User updated successfully.');
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      showToast('Failed to update user.', 'error');
+    }
   }
 
   function openAssignRole(user: User) {
@@ -179,11 +251,38 @@ export function UserManagement() {
     setShowActionMenu(null);
   }
 
-  function saveAssignRole() {
+  async function saveAssignRole() {
     if (!assignRoleUser) return;
-    setUsers(prev => prev.map(u => u.id === assignRoleUser.id ? { ...u, role: newRole } : u));
-    setAssignRoleUser(null);
-    showToast(`Role updated to "${newRole}".`);
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/users/${assignRoleUser.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ role_name: newRole }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to assign role.', 'error');
+        return;
+      }
+
+      const updatedUser = await response.json();
+      setUsers(prev => prev.map(u =>
+        u.id === updatedUser.id
+          ? { ...u, role: updatedUser.role }
+          : u
+      ));
+      setAssignRoleUser(null);
+      showToast(`Role updated to "${newRole}".`);
+    } catch (error) {
+      console.error('Failed to assign role:', error);
+      showToast('Failed to assign role.', 'error');
+    }
   }
 
   function openResetPassword(user: User) {
@@ -193,11 +292,34 @@ export function UserManagement() {
     setShowActionMenu(null);
   }
 
-  function saveResetPassword() {
+  async function saveResetPassword() {
     if (newPassword !== confirmPassword) { showToast('Passwords do not match.', 'error'); return; }
     if (newPassword.length < 8) { showToast('Password must be at least 8 characters.', 'error'); return; }
-    setResetPasswordUser(null);
-    showToast(`Password reset for ${resetPasswordUser?.name}.`);
+    if (!resetPasswordUser) return;
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/users/${resetPasswordUser.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to reset password.', 'error');
+        return;
+      }
+
+      setResetPasswordUser(null);
+      showToast(`Password reset for ${resetPasswordUser.name}.`);
+    } catch (error) {
+      console.error('Failed to reset password:', error);
+      showToast('Failed to reset password.', 'error');
+    }
   }
 
   function confirmDisable(user: User) {
@@ -205,12 +327,39 @@ export function UserManagement() {
     setShowActionMenu(null);
   }
 
-  function executeDisable() {
+  async function executeDisable() {
     if (!disableConfirmUser) return;
-    const next: UserStatus = disableConfirmUser.status === 'Active' ? 'Disabled' : 'Active';
-    setUsers(prev => prev.map(u => u.id === disableConfirmUser.id ? { ...u, status: next } : u));
-    showToast(`User ${next === 'Disabled' ? 'disabled' : 're-enabled'} successfully.`);
-    setDisableConfirmUser(null);
+    const nextActive = disableConfirmUser.status === 'Active' ? false : true;
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/users/${disableConfirmUser.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ is_active: nextActive }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to update user status.', 'error');
+        return;
+      }
+
+      const updatedUser = await response.json();
+      setUsers(prev => prev.map(u =>
+        u.id === updatedUser.id
+          ? { ...u, status: updatedUser.is_active ? 'Active' : 'Disabled' }
+          : u
+      ));
+      setDisableConfirmUser(null);
+      showToast(`User ${updatedUser.is_active ? 'enabled' : 'disabled'} successfully.`);
+    } catch (error) {
+      console.error('Failed to update user status:', error);
+      showToast('Failed to update user status.', 'error');
+    }
   }
 
   function confirmDelete(user: User) {
@@ -218,42 +367,105 @@ export function UserManagement() {
     setShowActionMenu(null);
   }
 
-  function executeDelete() {
+  async function executeDelete() {
     if (!deleteConfirmUser) return;
-    const now = new Date();
-    const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    setArchived(prev => [...prev, { ...deleteConfirmUser, deletedAt: now, expiresAt: expires }]);
-    setUsers(prev => prev.filter(u => u.id !== deleteConfirmUser.id));
-    showToast(`${deleteConfirmUser.name} moved to archive. Restoreable for 30 days.`);
-    setDeleteConfirmUser(null);
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/users/${deleteConfirmUser.id}`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to delete user.', 'error');
+        return;
+      }
+
+      const now = new Date();
+      const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      setArchived(prev => [...prev, { ...deleteConfirmUser, deletedAt: now, expiresAt: expires }]);
+      setUsers(prev => prev.filter(u => u.id !== deleteConfirmUser.id));
+      showToast(`${deleteConfirmUser.name} moved to archive. Restoreable for 30 days.`);
+      setDeleteConfirmUser(null);
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      showToast('Failed to delete user.', 'error');
+    }
   }
 
   function confirmRestore(user: ArchivedUser) {
     setRestoreConfirmUser(user);
   }
 
-  function executeRestore() {
+  async function executeRestore() {
     if (!restoreConfirmUser) return;
-    const { deletedAt, expiresAt, ...user } = restoreConfirmUser;
-    setUsers(prev => [...prev, user]);
-    setArchived(prev => prev.filter(u => u.id !== restoreConfirmUser.id));
-    showToast(`${user.name} restored successfully.`);
-    setRestoreConfirmUser(null);
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/users/${restoreConfirmUser.id}/restore`, {
+        method: 'PUT',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to restore user.', 'error');
+        return;
+      }
+
+      const restoredUser = await response.json();
+      setUsers(prev => [...prev, { ...restoredUser, status: restoredUser.is_active ? 'Active' : 'Disabled' }]);
+      setArchived(prev => prev.filter(u => u.id !== restoreConfirmUser.id));
+      showToast(`${restoredUser.name} restored successfully.`);
+      setRestoreConfirmUser(null);
+    } catch (error) {
+      console.error('Failed to restore user:', error);
+      showToast('Failed to restore user.', 'error');
+    }
   }
 
   function confirmPermanentDelete(user: ArchivedUser) {
     setPermanentDeleteUser(user);
   }
 
-  function executePermanentDelete() {
+  async function executePermanentDelete() {
     if (!permanentDeleteUser) return;
-    setArchived(prev => prev.filter(u => u.id !== permanentDeleteUser.id));
-    showToast(`${permanentDeleteUser.name} permanently deleted.`);
-    setPermanentDeleteUser(null);
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/users/${permanentDeleteUser.id}/permanent`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to permanently delete user.', 'error');
+        return;
+      }
+
+      setArchived(prev => prev.filter(u => u.id !== permanentDeleteUser.id));
+      showToast(`${permanentDeleteUser.name} permanently deleted.`);
+      setPermanentDeleteUser(null);
+    } catch (error) {
+      console.error('Failed to permanently delete user:', error);
+      showToast('Failed to permanently delete user.', 'error');
+    }
   }
 
   async function createUser() {
-    if (!createForm.name || !createForm.email || !createForm.clinic || !createForm.role) {
+if (!createForm.name || !createForm.email || !createForm.clinic || !createForm.role || !createForm.password) {
       showToast('Please fill in all fields.', 'error');
       return;
     }
@@ -270,7 +482,7 @@ export function UserManagement() {
         body: JSON.stringify({
           name: createForm.name,
           email: createForm.email,
-          password: 'ChangeMe123!',
+          password: createForm.password,
           clinic_name: createForm.clinic,
           role_name: createForm.role,
         }),
@@ -375,7 +587,7 @@ export function UserManagement() {
               </div>
               <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="all">All Roles</option>
-                {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                {availableRoles.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
               <select value={selectedClinic} onChange={e => setSelectedClinic(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="all">All Clinics</option>
@@ -385,7 +597,7 @@ export function UserManagement() {
           </div>
 
           {/* Users Table */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-lg border border-gray-200 overflow-visible">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
@@ -426,33 +638,50 @@ export function UserManagement() {
                             <Trash2 className="w-4 h-4" />
                           </button>
                           {/* More actions */}
-                          <div className="relative" ref={showActionMenu === user.id ? actionMenuRef : null}>
+                          <div className="relative inline-block">
                             <button
-                              onClick={() => setShowActionMenu(showActionMenu === user.id ? null : user.id)}
+                              ref={(el) => { actionButtonsRef.current[user.id] = el; }}
+                              onClick={() => {
+                                const rect = actionButtonsRef.current[user.id]?.getBoundingClientRect();
+                                if (rect) setActionMenuRect(rect);
+                                setShowActionMenu(showActionMenu === user.id ? null : user.id);
+                              }}
                               className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
                             >
                               <MoreVertical className="w-4 h-4" />
                             </button>
-                            {showActionMenu === user.id && (
-                              <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
-                                <button onClick={() => openEdit(user)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                  <Edit className="w-4 h-4" /> Edit User
-                                </button>
-                                <button onClick={() => openAssignRole(user)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                  <Shield className="w-4 h-4" /> Assign Role
-                                </button>
-                                <button onClick={() => openResetPassword(user)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                  <Key className="w-4 h-4" /> Reset Password
-                                </button>
-                                <div className="border-t border-gray-100 my-1" />
-                                <button onClick={() => confirmDisable(user)} className={`w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 ${user.status === 'Active' ? 'text-red-600' : 'text-green-600'}`}>
-                                  <Ban className="w-4 h-4" />
-                                  {user.status === 'Active' ? 'Disable User' : 'Enable User'}
-                                </button>
-                                <button onClick={() => confirmDelete(user)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                  <Trash2 className="w-4 h-4" /> Delete User
-                                </button>
-                              </div>
+                            {showActionMenu === user.id && actionMenuRect && createPortal(
+                              <div
+                                ref={actionMenuContentRef}
+                                style={{
+                                  position: 'fixed',
+                                  top: actionMenuRect.bottom + 8,
+                                  left: Math.min(actionMenuRect.right - 192, window.innerWidth - 208),
+                                  width: 192,
+                                  zIndex: 9999,
+                                }}
+                              >
+                                <div className="bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                                  <button onClick={() => openEdit(user)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                    <Edit className="w-4 h-4" /> Edit User
+                                  </button>
+                                  <button onClick={() => openAssignRole(user)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                    <Shield className="w-4 h-4" /> Assign Role
+                                  </button>
+                                  <button onClick={() => openResetPassword(user)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                    <Key className="w-4 h-4" /> Reset Password
+                                  </button>
+                                  <div className="border-t border-gray-100 my-1" />
+                                  <button onClick={() => confirmDisable(user)} className={`w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 ${user.status === 'Active' ? 'text-red-600' : 'text-green-600'}`}>
+                                    <Ban className="w-4 h-4" />
+                                    {user.status === 'Active' ? 'Disable User' : 'Enable User'}
+                                  </button>
+                                  <button onClick={() => confirmDelete(user)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    <Trash2 className="w-4 h-4" /> Delete User
+                                  </button>
+                                </div>
+                              </div>,
+                              document.body
                             )}
                           </div>
                         </div>
@@ -559,10 +788,12 @@ export function UserManagement() {
             {[
               { label: 'Full Name', key: 'name', type: 'text', placeholder: 'Dr. John Doe' },
               { label: 'Email', key: 'email', type: 'email', placeholder: 'john.doe@clinic.com' },
+              { label: 'Password', key: 'password', type: 'password', placeholder: 'Create a secure password' },
             ].map(f => (
               <div key={f.key}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}</label>
                 <input
+                  name={f.key}
                   type={f.type}
                   value={(createForm as any)[f.key]}
                   onChange={e => setCreateForm(p => ({ ...p, [f.key]: e.target.value }))}
@@ -573,7 +804,7 @@ export function UserManagement() {
             ))}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Clinic</label>
-              <select value={createForm.clinic} onChange={e => setCreateForm(p => ({ ...p, clinic: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select name="clinic" value={createForm.clinic} onChange={e => setCreateForm(p => ({ ...p, clinic: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">Select clinic</option>
                 {availableClinics.length === 0 ? (
                   <option value="" disabled>No clinics available. Add a clinic first.</option>
@@ -585,14 +816,18 @@ export function UserManagement() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
               <select
+                name="role"
                 value={createForm.role}
                 onChange={e => setCreateForm(p => ({ ...p, role: e.target.value }))}
-                disabled={!createForm.clinic || !clinicExists(createForm.clinic)}
+                disabled={!createForm.clinic || !clinicExists(createForm.clinic) || availableRoles.length === 0}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
               >
                 <option value="">Select role</option>
-                {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                {availableRoles.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
+              {availableRoles.length === 0 && (
+                <p className="text-xs text-red-600 mt-2">No roles available. Create roles first on the Roles & Permissions page.</p>
+              )}
               {!createForm.clinic && (
                 <p className="text-xs text-red-600 mt-2">Please choose a clinic before selecting a role.</p>
               )}
@@ -639,7 +874,7 @@ export function UserManagement() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
               <select value={editForm.role} onChange={e => setEditForm(p => ({ ...p, role: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                {availableRoles.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
           </div>
@@ -652,7 +887,9 @@ export function UserManagement() {
         <Modal title="Assign Role" onClose={() => setAssignRoleUser(null)}>
           <p className="text-sm text-gray-600 mb-4">Select a new role for <span className="font-medium text-gray-900">{assignRoleUser.name}</span>.</p>
           <div className="space-y-2">
-            {roles.map(r => (
+            {availableRoles.length === 0 ? (
+              <p className="text-sm text-red-600">No roles available. Create roles first in Roles & Permissions.</p>
+            ) : availableRoles.map(r => (
               <label key={r} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${newRole === r ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
                 <input type="radio" name="role" value={r} checked={newRole === r} onChange={() => setNewRole(r)} className="text-blue-600" />
                 <div>

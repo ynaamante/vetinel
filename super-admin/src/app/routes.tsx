@@ -8,6 +8,7 @@ import { AuditTrail } from "./components/pages/AuditTrail";
 import { Settings } from "./components/pages/Settings";
 import { ClinicDetails } from "./components/pages/ClinicDetails";
 import { Login } from "./components/pages/Login";
+import { SystemAnnouncements } from "./components/pages/SystemAnnouncements";
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: "clinics", Component: ClinicManagement },
       { path: "clinics/:id", Component: ClinicDetails },
       { path: "users", Component: UserManagement },
+        { path: "announcements", Component: SystemAnnouncements },
       { path: "roles", Component: RolesPermissions },
       { path: "audit", Component: AuditTrail },
       { path: "settings", Component: Settings },

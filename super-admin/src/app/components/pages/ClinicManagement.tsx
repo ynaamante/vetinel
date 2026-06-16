@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
+import { jsPDF } from 'jspdf';
 import {
   Search,
-  Filter,
   Building2,
   CheckCircle,
   Clock,
@@ -22,6 +21,7 @@ import {
   MapPin,
   Plus,
 } from 'lucide-react';
+import { Toast } from '../ui/Toast';
 
 const statusColors = {
   active: 'bg-green-100 text-green-700',
@@ -43,15 +43,11 @@ export type ClinicRecord = {
   status: 'active' | 'pending' | 'suspended';
 };
 
-// TODO: Fetch from /api/clinics
-const clinicsData: ClinicRecord[] = [];
-
 export function ClinicManagement() {
   const [activeTab, setActiveTab] = useState<'overview' | 'detailed'>('overview');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showActionMenu, setShowActionMenu] = useState<number | null>(null);
-  const [actionAnchorRect, setActionAnchorRect] = useState<DOMRect | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState<number | null>(null);
@@ -59,8 +55,207 @@ export function ClinicManagement() {
   const [editingClinic, setEditingClinic] = useState<ClinicRecord | null>(null);
   const [editForm, setEditForm] = useState({ name: '', owner: '', email: '', phone: '', address: '' });
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createClinicForm, setCreateClinicForm] = useState({ name: '', email: '', phone: '', address: '', timezone: 'UTC' });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [clinicToDelete, setClinicToDelete] = useState<number | null>(null);
+  const [createClinicForm, setCreateClinicForm] = useState({ name: '', owner: '', email: '', phone: '', address: '', timezone: 'UTC' });
   const [toast, setToast] = useState<string | null>(null);
+
+  const exportToCSV = () => {
+    if (clinics.length === 0) {
+      setToast('No clinics to export');
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    const headers = ['ID', 'Name', 'Owner', 'Email', 'Phone', 'Address', 'Status', 'Total Staff', 'Registration Date'];
+    const csvContent = [
+      headers.join(','),
+      ...clinics.map(clinic =>
+        [
+          clinic.id,
+          `"${clinic.name}"`,
+          `"${clinic.owner}"`,
+          `"${clinic.email || ''}"`,
+          `"${clinic.phone || ''}"`,
+          `"${clinic.address || ''}"`,
+          clinic.status,
+          clinic.totalStaff,
+          clinic.registrationDate,
+        ].join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `clinic-report-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setToast('Report exported successfully');
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const exportToPDF = () => {
+    if (clinics.length === 0) {
+      setToast('No clinics to export');
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 30;
+    const contentWidth = pageWidth - margin * 2;
+
+    const brand = [8, 91, 166];
+    const cardBg = [247, 250, 255];
+    const textDark = [17, 24, 39];
+    const textGray = [75, 85, 99];
+    const badgeActive = [34, 197, 94];
+    const badgePending = [234, 179, 8];
+    const badgeSuspended = [239, 68, 68];
+
+    const headerHeight = 128;
+    doc.setFillColor(...brand);
+    doc.rect(0, 0, pageWidth, headerHeight, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(28);
+    doc.setTextColor(255, 255, 255);
+    doc.text('VetIntel', margin, 48);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Clinic performance and status summary', margin, 68);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('Clinic Report', pageWidth - margin, 50, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(238, 242, 255);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin, 68, { align: 'right' });
+
+    const statusCounts = {
+      active: clinics.filter((c) => c.status === 'active').length,
+      pending: clinics.filter((c) => c.status === 'pending').length,
+      suspended: clinics.filter((c) => c.status === 'suspended').length,
+    };
+
+    let y = headerHeight + 24;
+    const metricBoxHeight = 66;
+    const metricWidth = (contentWidth - 16) / 3;
+
+    ['active', 'pending', 'suspended'].forEach((status, index) => {
+      const x = margin + index * (metricWidth + 8);
+      doc.setFillColor(...cardBg);
+      doc.roundedRect(x, y, metricWidth, metricBoxHeight, 12, 12, 'F');
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(x, y, metricWidth, metricBoxHeight, 12, 12, 'S');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(...textDark);
+      doc.text(String(statusCounts[status as 'active' | 'pending' | 'suspended']), x + 14, y + 26);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...textGray);
+      doc.text(`${status.charAt(0).toUpperCase() + status.slice(1)}`, x + 14, y + 44);
+    });
+
+    y += metricBoxHeight + 24;
+
+    clinics.forEach((clinic, index) => {
+      if (y + 190 > pageHeight - 80) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(...textGray);
+        doc.text(`Page ${doc.getCurrentPageInfo().pageNumber}`, pageWidth - margin, pageHeight - 30, { align: 'right' });
+        doc.addPage();
+        y = margin;
+      }
+
+      const cardHeight = 178;
+      doc.setFillColor(...cardBg);
+      doc.roundedRect(margin, y, contentWidth, cardHeight, 16, 16, 'F');
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(margin, y, contentWidth, cardHeight, 16, 16, 'S');
+
+      const titleBoxWidth = 90;
+      doc.setFillColor(...brand);
+      doc.roundedRect(margin + 16, y + 16, titleBoxWidth, 28, 10, 10, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Clinic ${String(index + 1).padStart(2, '0')}`, margin + 16 + titleBoxWidth / 2, y + 34, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(...textDark);
+      doc.text(clinic.name, margin + 120, y + 34);
+
+      const labelX = margin + 26;
+      const valueX = margin + 112;
+      const labelX2 = margin + contentWidth / 2 + 10;
+      const valueX2 = labelX2 + 90;
+      let rowY = y + 64;
+      const rowGap = 18;
+
+      const drawPair = (label: string, value: string | number, x: number, vx: number) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...textGray);
+        doc.text(label, x, rowY);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(...textDark);
+        doc.text(`${value}`, vx, rowY);
+      };
+
+      drawPair('ID', clinic.id, labelX, valueX);
+      drawPair('Address', clinic.address || 'N/A', labelX2, valueX2);
+      rowY += rowGap;
+      drawPair('Owner', clinic.owner, labelX, valueX);
+      drawPair('Email', clinic.email || 'N/A', labelX2, valueX2);
+      rowY += rowGap;
+      drawPair('Phone', clinic.phone || 'N/A', labelX, valueX);
+      drawPair('Registration', clinic.registrationDate, labelX2, valueX2);
+      rowY += rowGap;
+      drawPair('Total Staff', clinic.totalStaff, labelX, valueX);
+      drawPair('Status', clinic.status.toUpperCase(), labelX2, valueX2);
+
+      const badgeColor = clinic.status === 'active' ? badgeActive : clinic.status === 'pending' ? badgePending : badgeSuspended;
+      doc.setFillColor(...badgeColor);
+      doc.roundedRect(pageWidth - margin - 104, y + 20, 88, 24, 12, 12, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text(clinic.status.toUpperCase(), pageWidth - margin - 60, y + 36, { align: 'center' });
+
+      y += cardHeight + 20;
+    });
+
+    const footerY = pageHeight - 48;
+    doc.setFillColor(...brand);
+    doc.rect(0, footerY, pageWidth, 48, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text('www.vetintel.com', margin, footerY + 18);
+    doc.text('info@vetintel.com', margin, footerY + 32);
+    doc.text('123-456-7890', pageWidth - margin, footerY + 25, { align: 'right' });
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Page ${doc.getCurrentPageInfo().pageNumber}`, pageWidth - margin, footerY + 32, { align: 'right' });
+
+    const filename = `clinic-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
+    setToast('Report exported successfully');
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // Fetch clinics from API on mount
   useEffect(() => {
@@ -70,19 +265,22 @@ export function ClinicManagement() {
         if (!response.ok) throw new Error('Failed to fetch clinics');
         const data = await response.json();
         // Map database clinics to component ClinicRecord type
-        setClinics(data.map((clinic: any) => ({
-          id: clinic.id,
-          name: clinic.name,
-          owner: 'Unknown', // Fetch from clinic owner relationship if available
-          email: clinic.email,
-          phone: clinic.phone,
-          address: clinic.address,
-          registrationDate: new Date(clinic.created_at).toLocaleDateString(),
-          doctors: 0, // Fetch from database
-          receptionists: 0, // Fetch from database
-          totalStaff: 0, // Fetch from database
-          status: 'active' as const // Map from database status if available
-        })));
+        setClinics(data.map((clinic: any) => {
+          const status = clinic.status || clinic.metadata?.status || 'active';
+          return {
+            id: clinic.id,
+            name: clinic.name,
+            owner: clinic.owner || 'Unknown',
+            email: clinic.email,
+            phone: clinic.phone,
+            address: clinic.address,
+            registrationDate: new Date(clinic.created_at).toLocaleDateString(),
+            doctors: clinic.doctors || 0,
+            receptionists: clinic.receptionists || 0,
+            totalStaff: clinic.total_users || 0,
+            status: (status === 'pending' ? 'pending' : status === 'suspended' ? 'suspended' : 'active') as 'active' | 'pending' | 'suspended',
+          };
+        }));
       } catch (error) {
         console.error('Failed to fetch clinics:', error);
         setToast('Failed to load clinics');
@@ -99,12 +297,55 @@ export function ClinicManagement() {
     setShowActionMenu(null);
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (!editingClinic) return;
-    setClinics(prev => prev.map(c => c.id === editingClinic.id ? { ...c, ...editForm } : c));
-    setEditingClinic(null);
-    setToast('Clinic information updated successfully.');
-    setTimeout(() => setToast(null), 3000);
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/clinics/${editingClinic.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          name: editForm.name,
+          owner: editForm.owner,
+          email: editForm.email,
+          phone: editForm.phone,
+          address: editForm.address,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setToast(errorData.error || 'Failed to update clinic');
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+
+      const updatedClinic = await response.json();
+      setClinics(prev => prev.map(c =>
+        c.id === updatedClinic.id
+          ? {
+              ...c,
+              name: updatedClinic.name,
+              owner: updatedClinic.owner || c.owner,
+              email: updatedClinic.email,
+              phone: updatedClinic.phone,
+              address: updatedClinic.address,
+              status: updatedClinic.status || c.status,
+            }
+          : c
+      ));
+      setEditingClinic(null);
+      setToast('Clinic information updated successfully.');
+      setTimeout(() => setToast(null), 3000);
+    } catch (error) {
+      console.error('Failed to update clinic:', error);
+      setToast('Failed to update clinic');
+      setTimeout(() => setToast(null), 3000);
+    }
   }
 
   const filteredClinics = clinics.filter((clinic) => {
@@ -123,16 +364,114 @@ export function ClinicManagement() {
     { label: 'Suspended Clinics', value: clinics.filter((c) => c.status === 'suspended').length, icon: XCircle, color: 'red' },
   ];
 
-  const handleApprove = () => {
-    setShowApproveModal(false);
-    setSelectedClinic(null);
-    // Show success notification
+  const handleApprove = async () => {
+    if (!selectedClinic) return;
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/clinics/${selectedClinic}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ status: 'active' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setToast(errorData.error || 'Failed to approve clinic');
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+
+      const updatedClinic = await response.json();
+      setClinics((prev) => prev.map((clinic) =>
+        clinic.id === updatedClinic.id
+          ? { ...clinic, status: updatedClinic.status || 'active' }
+          : clinic
+      ));
+      setShowApproveModal(false);
+      setSelectedClinic(null);
+      setToast('Clinic approved successfully');
+      setTimeout(() => setToast(null), 3000);
+    } catch (error) {
+      console.error('Failed to approve clinic:', error);
+      setToast('Failed to approve clinic');
+      setTimeout(() => setToast(null), 3000);
+    }
   };
 
-  const handleSuspend = () => {
-    setShowSuspendModal(false);
-    setSelectedClinic(null);
-    // Show success notification
+  const handleSuspend = async () => {
+    if (!selectedClinic) return;
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/clinics/${selectedClinic}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ status: 'suspended' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setToast(errorData.error || 'Failed to suspend clinic');
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+
+      const updatedClinic = await response.json();
+      setClinics((prev) => prev.map((clinic) =>
+        clinic.id === updatedClinic.id
+          ? { ...clinic, status: updatedClinic.status || 'suspended' }
+          : clinic
+      ));
+      setShowSuspendModal(false);
+      setSelectedClinic(null);
+      setToast('Clinic suspended successfully');
+      setTimeout(() => setToast(null), 3000);
+    } catch (error) {
+      console.error('Failed to suspend clinic:', error);
+      setToast('Failed to suspend clinic');
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
+  const handleReactivate = async (clinicId: number) => {
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/clinics/${clinicId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ status: 'active' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setToast(errorData.error || 'Failed to reactivate clinic');
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+
+      const updatedClinic = await response.json();
+      setClinics((prev) => prev.map((clinic) =>
+        clinic.id === updatedClinic.id
+          ? { ...clinic, status: updatedClinic.status || 'active' }
+          : clinic
+      ));
+      setToast('Clinic reactivated successfully');
+      setTimeout(() => setToast(null), 3000);
+    } catch (error) {
+      console.error('Failed to reactivate clinic:', error);
+      setToast('Failed to reactivate clinic');
+      setTimeout(() => setToast(null), 3000);
+    }
   };
 
   async function handleCreateClinic() {
@@ -169,7 +508,7 @@ export function ClinicManagement() {
         {
           id: newClinic.id,
           name: newClinic.name,
-          owner: 'Unknown',
+          owner: newClinic.owner || 'Unknown',
           email: newClinic.email,
           phone: newClinic.phone,
           address: newClinic.address,
@@ -177,11 +516,11 @@ export function ClinicManagement() {
           doctors: 0,
           receptionists: 0,
           totalStaff: 0,
-          status: 'active',
+          status: (newClinic.status || 'active') as 'active' | 'pending' | 'suspended',
         },
         ...prev,
       ]);
-      setCreateClinicForm({ name: '', email: '', phone: '', address: '', timezone: 'UTC' });
+      setCreateClinicForm({ name: '', owner: '', email: '', phone: '', address: '', timezone: 'UTC' });
       setShowCreateModal(false);
       setToast('Clinic added successfully');
       setTimeout(() => setToast(null), 3000);
@@ -191,6 +530,36 @@ export function ClinicManagement() {
       setTimeout(() => setToast(null), 3000);
     }
   }
+
+  const handleDeleteClinic = async () => {
+    if (!clinicToDelete) return;
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/clinics/${clinicToDelete}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        setToast(err?.error || 'Failed to archive clinic');
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+
+      setClinics((prev) => prev.filter((c) => c.id !== clinicToDelete));
+      setClinicToDelete(null);
+      setShowDeleteConfirm(false);
+      setToast('Clinic archived successfully');
+      setTimeout(() => setToast(null), 3000);
+    } catch (error) {
+      console.error('Failed to delete clinic:', error);
+      setToast('Failed to delete clinic');
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -209,7 +578,10 @@ export function ClinicManagement() {
             <Plus className="w-4 h-4" />
             Add Clinic
           </button>
-          <button className="px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2 text-sm">
+          <button 
+            onClick={exportToPDF}
+            className="px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2 text-sm"
+          >
             <Download className="w-4 h-4" />
             Export Report
           </button>
@@ -431,7 +803,7 @@ export function ClinicManagement() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              All ({clinicsData.length})
+              All ({clinics.length})
             </button>
             <button
               onClick={() => setSelectedStatus('active')}
@@ -540,29 +912,15 @@ export function ClinicManagement() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="relative">
+                      <div className="relative inline-block text-left">
                         <button
-                          onClick={(e) => {
-                            const btn = e.currentTarget as HTMLElement;
-                            const rect = btn.getBoundingClientRect();
-                            setActionAnchorRect(rect);
-                            setShowActionMenu(showActionMenu === clinic.id ? null : clinic.id);
-                          }}
-                          className="text-gray-400 hover:text-gray-600"
+                          onClick={() => setShowActionMenu(showActionMenu === clinic.id ? null : clinic.id)}
+                          className="text-gray-400 hover:text-gray-600 focus:outline-none"
                         >
                           <MoreVertical className="w-5 h-5" />
                         </button>
-                        {showActionMenu === clinic.id && actionAnchorRect && createPortal(
-                          <div
-                            style={{
-                              position: 'fixed',
-                              top: actionAnchorRect.bottom + 8 + window.scrollY,
-                              left: Math.min(actionAnchorRect.right - 200, window.innerWidth - 220),
-                              width: 192,
-                              zIndex: 9999,
-                            }}
-                          >
-                            <div className="bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                        {showActionMenu === clinic.id && (
+                          <div className="absolute right-0 top-full mt-2 min-w-[12rem] bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                               <Link
                                 to={`/clinics/${clinic.id}`}
                                 className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -598,7 +956,13 @@ export function ClinicManagement() {
                                 </button>
                               )}
                               {clinic.status === 'suspended' && (
-                                <button className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <button
+                                  onClick={() => {
+                                    handleReactivate(clinic.id);
+                                    setShowActionMenu(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                >
                                   <PlayCircle className="w-4 h-4" />
                                   Reactivate Clinic
                                 </button>
@@ -613,8 +977,19 @@ export function ClinicManagement() {
                                 <Edit className="w-4 h-4" />
                                 Edit Information
                               </button>
+                              <button
+                                onClick={() => {
+                                  setClinicToDelete(clinic.id);
+                                  setShowDeleteConfirm(true);
+                                  setShowActionMenu(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                              >
+                                <X className="w-4 h-4" />
+                                Delete Clinic
+                              </button>
                             </div>
-                          </div>, document.body)}
+                        )}
                       </div>
                   </td>
                 </tr>
@@ -627,10 +1002,31 @@ export function ClinicManagement() {
       )}
 
       {/* Toast */}
-      {toast && (
-        <div className="fixed top-6 right-6 z-[100] flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white text-sm bg-green-600">
-          <CheckCircle className="w-4 h-4" />
-          {toast}
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && clinicToDelete !== null && (
+        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-gray-900 text-center">Archive Clinic</h2>
+              <p className="text-sm text-gray-600 text-center mt-2">Are you sure you want to archive this clinic? Archived clinics are hidden from lists.</p>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setClinicToDelete(null); }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteClinic}
+                  className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                >
+                  Archive
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -653,6 +1049,7 @@ export function ClinicManagement() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Clinic Name</label>
                 <input
+                  name="name"
                   type="text"
                   value={createClinicForm.name}
                   onChange={e => setCreateClinicForm(p => ({ ...p, name: e.target.value }))}
@@ -663,6 +1060,7 @@ export function ClinicManagement() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input
+                  name="email"
                   type="email"
                   value={createClinicForm.email}
                   onChange={e => setCreateClinicForm(p => ({ ...p, email: e.target.value }))}
@@ -670,10 +1068,22 @@ export function ClinicManagement() {
                   placeholder="clinic@example.com"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Clinic Owner</label>
+                <input
+                  name="owner"
+                  type="text"
+                  value={createClinicForm.owner}
+                  onChange={e => setCreateClinicForm(p => ({ ...p, owner: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Owner name"
+                />
+              </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                   <input
+                    name="phone"
                     type="text"
                     value={createClinicForm.phone}
                     onChange={e => setCreateClinicForm(p => ({ ...p, phone: e.target.value }))}
@@ -684,6 +1094,7 @@ export function ClinicManagement() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
                   <input
+                    name="timezone"
                     type="text"
                     value={createClinicForm.timezone}
                     onChange={e => setCreateClinicForm(p => ({ ...p, timezone: e.target.value }))}

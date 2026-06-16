@@ -1,4 +1,62 @@
 const db = require('../config/db');
+const audit = require('../utils/audit');
+
+const roleSynonymMap = new Map([
+  ['clinic owner', 'clinic_owner'],
+  ['clinicowner', 'clinic_owner'],
+  ['clinic-owner', 'clinic_owner'],
+  ['owner', 'clinic_owner'],
+  ['clinic_owner', 'clinic_owner'],
+  ['dr', 'doctor'],
+  ['dr.', 'doctor'],
+  ['doctor', 'doctor'],
+  ['receptionist', 'receptionist'],
+  ['super admin', 'super_admin'],
+  ['super_admin', 'super_admin'],
+]);
+
+const canonicalRoleNames = new Set(['clinic_owner', 'doctor', 'receptionist', 'super_admin']);
+
+function normalizeRoleName(name) {
+  if (!name) return '';
+  return name.trim();
+}
+
+function roleCanonicalKey(name) {
+  if (!name) return '';
+  const lower = name.trim().toLowerCase();
+  return roleSynonymMap.get(lower) || lower;
+}
+
+function dedupeRoles(rows) {
+  const buckets = rows.reduce((acc, role) => {
+    const key = roleCanonicalKey(role.name);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(role);
+    return acc;
+  }, {});
+
+  return Object.values(buckets)
+    .map((group) => {
+      const canonicalRole = group.find((role) => canonicalRoleNames.has(role.name.toLowerCase()));
+      const selectedRole = canonicalRole || group[0];
+      return {
+        ...selectedRole,
+        name: normalizeRoleName(selectedRole.name),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function roleNameExists(name, excludeId = null) {
+  const canonicalKey = roleCanonicalKey(name);
+  const excludedId = excludeId != null ? Number(excludeId) : null;
+  const result = await db.query('SELECT id, name FROM roles');
+  return result.rows.some((row) => {
+    if (excludedId != null && row.id === excludedId) return false;
+    return roleCanonicalKey(row.name) === canonicalKey;
+  });
+}
 
 exports.list = async (req, res, next) => {
   try {
@@ -20,7 +78,8 @@ exports.list = async (req, res, next) => {
       permissions: typeof role.permissions === 'string' ? JSON.parse(role.permissions) : role.permissions
     }));
     
-    res.json(roles);
+    const dedupedRoles = dedupeRoles(roles);
+    res.json(dedupedRoles);
   } catch (e) {
     next(e);
   }
@@ -29,13 +88,15 @@ exports.list = async (req, res, next) => {
 exports.getById = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const numericId = parseInt(id, 10);
+    if (Number.isNaN(numericId)) return res.status(400).json({ error: 'invalid role id' });
     const colRes = await db.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name='roles' AND column_name='description'`
     );
     const hasDescription = colRes.rows.length > 0;
     const fields = hasDescription ? 'id, name, description, permissions' : 'id, name, permissions';
 
-    const result = await db.query(`SELECT ${fields} FROM roles WHERE id = $1`, [id]);
+    const result = await db.query(`SELECT ${fields} FROM roles WHERE id = $1`, [numericId]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Role not found' });
     
     const role = result.rows[0];
@@ -50,6 +111,12 @@ exports.create = async (req, res, next) => {
   try {
     const { name, description, permissions } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
+    const normalizedName = normalizeRoleName(name);
+    const canonicalName = roleCanonicalKey(name);
+    if (canonicalName === 'super_admin') {
+      return res.status(400).json({ error: 'Role super_admin is not allowed' });
+    }
+    if (await roleNameExists(canonicalName)) return res.status(409).json({ error: 'Role already exists' });
     const colRes = await db.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name='roles' AND column_name='description'`
     );
@@ -61,19 +128,30 @@ exports.create = async (req, res, next) => {
         `INSERT INTO roles (name, description, permissions)
          VALUES ($1, $2, $3)
          RETURNING id, name, description, permissions`,
-        [name, description || '', JSON.stringify(permissions || {})]
+        [normalizedName, description || '', JSON.stringify(permissions || {})]
       );
     } else {
       result = await db.query(
         `INSERT INTO roles (name, permissions)
          VALUES ($1, $2)
          RETURNING id, name, permissions`,
-        [name, JSON.stringify(permissions || {})]
+        [normalizedName, JSON.stringify(permissions || {})]
       );
     }
     
     const role = result.rows[0];
     role.permissions = typeof role.permissions === 'string' ? JSON.parse(role.permissions) : role.permissions;
+    // audit
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Created role',
+      table_name: 'roles',
+      record_id: role.id,
+      new_data: role,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
+
     res.status(201).json(role);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Role already exists' });
@@ -84,31 +162,46 @@ exports.create = async (req, res, next) => {
 exports.update = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const numericId = parseInt(id, 10);
+    if (Number.isNaN(numericId)) return res.status(400).json({ error: 'invalid role id' });
     const { name, description, permissions } = req.body;
     const colRes = await db.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name='roles' AND column_name='description'`
     );
     const hasDescription = colRes.rows.length > 0;
 
+    const before = await db.query('SELECT * FROM roles WHERE id = $1', [numericId]);
+    if (before.rows.length === 0) return res.status(404).json({ error: 'Role not found' });
     let result;
+    const normalizedName = name ? normalizeRoleName(name) : null;
+    const canonicalName = name ? roleCanonicalKey(name) : null;
+    if (canonicalName === 'super_admin') {
+      return res.status(400).json({ error: 'Role super_admin is not allowed' });
+    }
+    // Only check for duplicate role names when the name is being changed.
+    const nameChanged = name && before.rows[0].name.trim().toLowerCase() !== name.trim().toLowerCase();
+    if (canonicalName && nameChanged && await roleNameExists(canonicalName, numericId)) {
+      return res.status(409).json({ error: 'Role already exists' });
+    }
+
     if (hasDescription) {
       result = await db.query(
         `UPDATE roles
          SET name = COALESCE($1, name),
              description = COALESCE($2, description),
              permissions = COALESCE($3, permissions)
-         WHERE id = $4
+        WHERE id = $4
          RETURNING id, name, description, permissions`,
-        [name, description, permissions ? JSON.stringify(permissions) : null, id]
+        [normalizedName || null, description, permissions ? JSON.stringify(permissions) : null, numericId]
       );
     } else {
       result = await db.query(
         `UPDATE roles
          SET name = COALESCE($1, name),
              permissions = COALESCE($2, permissions)
-         WHERE id = $3
+        WHERE id = $3
          RETURNING id, name, permissions`,
-        [name, permissions ? JSON.stringify(permissions) : null, id]
+        [normalizedName || null, permissions ? JSON.stringify(permissions) : null, numericId]
       );
     }
     
@@ -116,6 +209,18 @@ exports.update = async (req, res, next) => {
     
     const role = result.rows[0];
     role.permissions = typeof role.permissions === 'string' ? JSON.parse(role.permissions) : role.permissions;
+    // audit
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Updated role',
+      table_name: 'roles',
+      record_id: numericId,
+      old_data: before.rows[0] || null,
+      new_data: role,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
+
     res.json(role);
   } catch (e) {
     next(e);
@@ -125,8 +230,21 @@ exports.update = async (req, res, next) => {
 exports.delete = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await db.query(`DELETE FROM roles WHERE id = $1 RETURNING id`, [id]);
+    const numericId = parseInt(id, 10);
+    if (Number.isNaN(numericId)) return res.status(400).json({ error: 'invalid role id' });
+    const before = await db.query('SELECT * FROM roles WHERE id = $1', [numericId]);
+    const result = await db.query(`DELETE FROM roles WHERE id = $1 RETURNING id`, [numericId]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Role not found' });
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Deleted role',
+      table_name: 'roles',
+      record_id: numericId,
+      old_data: before.rows[0] || null,
+      new_data: null,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
     res.json({ success: true });
   } catch (e) {
     next(e);

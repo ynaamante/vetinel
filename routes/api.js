@@ -16,12 +16,18 @@ router.post('/login', users.login);
 // User endpoints
 router.get('/users', auth.optional, users.list);
 router.post('/users', users.create);
+router.put('/users/:id', auth.required, users.update);
+router.delete('/users/:id', auth.required, users.delete);
+router.put('/users/:id/restore', auth.required, users.restore);
+router.delete('/users/:id/permanent', auth.required, users.permanentDelete);
 
 // Clinic endpoints
 router.get('/clinics', auth.optional, clinics.list);
 router.get('/clinics/:id', auth.optional, clinics.getById);
+router.get('/clinics/:id/staff', auth.optional, clinics.getStaffByClinic);
 router.post('/clinics', auth.required, clinics.create);
 router.put('/clinics/:id', auth.required, clinics.update);
+router.delete('/clinics/:id', auth.required, auth.superAdmin, clinics.delete);
 
 // Audit Trail endpoints
 router.get('/audit-trail', auth.optional, audit.list);
@@ -37,6 +43,8 @@ router.delete('/announcements/:id', auth.required, announcements.delete);
 // Dashboard endpoints
 router.get('/dashboard/stats', auth.optional, dashboard.getDashboardStats);
 router.get('/dashboard/activity', auth.optional, dashboard.getRecentActivity);
+router.delete('/dashboard/activity', auth.required, auth.superAdmin, dashboard.clearRecentActivity);
+router.get('/dashboard/roles', auth.optional, dashboard.getRoleBreakdown);
 
 // Roles endpoints
 router.get('/roles', auth.optional, roles.list);

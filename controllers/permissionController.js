@@ -38,7 +38,18 @@ exports.create = async (req, res, next) => {
        RETURNING id, name, description, resource, action, created_at`,
       [name, description || '', resource || '', action || '']
     );
-    res.status(201).json(result.rows[0]);
+    const row = result.rows[0];
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    const audit = require('../utils/audit');
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Created permission',
+      table_name: 'permissions',
+      record_id: row.id,
+      new_data: row,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
+    res.status(201).json(row);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Permission already exists' });
     next(e);
@@ -62,7 +73,18 @@ exports.update = async (req, res, next) => {
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Permission not found' });
-    res.json(result.rows[0]);
+    const row = result.rows[0];
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    const audit = require('../utils/audit');
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Updated permission',
+      table_name: 'permissions',
+      record_id: row.id,
+      new_data: row,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
+    res.json(row);
   } catch (e) {
     next(e);
   }
@@ -76,6 +98,16 @@ exports.delete = async (req, res, next) => {
       [id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Permission not found' });
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    const audit = require('../utils/audit');
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Deleted permission',
+      table_name: 'permissions',
+      record_id: id,
+      new_data: null,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
     res.json({ success: true });
   } catch (e) {
     next(e);
@@ -114,7 +146,18 @@ exports.createRolePermission = async (req, res, next) => {
        RETURNING id, role_id, permission_id`,
       [role_id, permission_id]
     );
-    res.status(201).json(result.rows[0]);
+    const row = result.rows[0];
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    const audit = require('../utils/audit');
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Created role_permission',
+      table_name: 'role_permissions',
+      record_id: row.id,
+      new_data: row,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
+    res.status(201).json(row);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Role permission mapping already exists' });
     next(e);
@@ -129,6 +172,16 @@ exports.deleteRolePermission = async (req, res, next) => {
       [id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Role permission mapping not found' });
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    const audit = require('../utils/audit');
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Deleted role_permission',
+      table_name: 'role_permissions',
+      record_id: id,
+      new_data: null,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
     res.json({ success: true });
   } catch (e) {
     next(e);

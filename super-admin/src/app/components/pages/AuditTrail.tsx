@@ -1,21 +1,12 @@
 import { useState, useEffect } from 'react';
+import { jsPDF } from 'jspdf';
 import {
   FileText,
   Search,
-  Filter,
   Download,
-  Building2,
-  Users,
-  Shield,
-  Settings,
   AlertCircle,
   CheckCircle,
-  Edit,
-  Trash2,
 } from 'lucide-react';
-
-// TODO: Fetch from /api/audit-trail
-const auditLogs: any[] = [];
 
 const categories = [
   'All Categories',
@@ -35,25 +26,105 @@ export function AuditTrail() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
-  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAuditLogs = async () => {
       try {
-        setLoading(true);
         const response = await fetch('/api/audit-trail');
         if (!response.ok) throw new Error('Failed to fetch audit logs');
         const data = await response.json();
         setAuditLogs(data || []);
       } catch (error) {
         console.error('Failed to fetch audit logs:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
     fetchAuditLogs();
   }, []);
+
+  const exportToCSV = () => {
+    if (auditLogs.length === 0) {
+      setToast('No audit logs to export');
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    const headers = ['ID', 'Entity Type', 'Entity ID', 'Action', 'User', 'Timestamp', 'Changes', 'Severity'];
+    const csvContent = [
+      headers.join(','),
+      ...auditLogs.map(log =>
+        [
+          log.id || '',
+          `"${log.entity_type || ''}"`,
+          log.entity_id || '',
+          `"${log.action || ''}"`,
+          `"${log.user_id || ''}"`,
+          `"${log.timestamp || ''}"`,
+          `"${log.changes ? JSON.stringify(log.changes).replace(/"/g, '""') : ''}"`,
+          `"${log.severity || 'info'}"`,
+        ].join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `audit-logs-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setToast('Audit logs exported successfully');
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const exportToPDF = () => {
+    if (auditLogs.length === 0) {
+      setToast('No audit logs to export');
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    const doc = new jsPDF();
+    const title = 'Audit Logs';
+    doc.setFontSize(16);
+    doc.text(title, 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+
+    let y = 38;
+    auditLogs.forEach((log, index) => {
+      if (y > doc.internal.pageSize.height - 30) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.text(`Entry ${index + 1}: ${log.action || 'Unknown action'}`, 14, y);
+      y += 8;
+      doc.setFontSize(10);
+      doc.text(`User: ${log.user || log.user_id || 'Unknown'}`, 14, y);
+      y += 6;
+      doc.text(`Entity: ${log.entity_type || 'N/A'} #${log.entity_id || 'N/A'}`, 14, y);
+      y += 6;
+      doc.text(`Timestamp: ${log.timestamp || 'N/A'}`, 14, y);
+      y += 6;
+      doc.text(`Severity: ${log.severity || 'info'}`, 14, y);
+      y += 6;
+      doc.text(`Changes: ${log.changes ? JSON.stringify(log.changes) : 'N/A'}`, 14, y, { maxWidth: doc.internal.pageSize.width - 28 });
+      y += 12;
+      doc.setLineWidth(0.2);
+      doc.line(14, y, doc.internal.pageSize.width - 14, y);
+      y += 10;
+    });
+
+    doc.save(`audit-logs-${new Date().toISOString().split('T')[0]}.pdf`);
+    setToast('Audit logs exported successfully');
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const filteredLogs = auditLogs.filter((log) => {
     const matchesSearch =
@@ -75,7 +146,10 @@ export function AuditTrail() {
             Complete history of all administrative actions
           </p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button 
+          onClick={exportToPDF}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
           <Download className="w-4 h-4" />
           Export Logs
         </button>

@@ -45,7 +45,18 @@ exports.create = async (req, res, next) => {
        RETURNING id, clinic_id, key, value, updated_at`,
       [clinicId, key, JSON.stringify(value || {})]
     );
-    res.status(201).json(result.rows[0]);
+    const row = result.rows[0];
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    const audit = require('../utils/audit');
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Created setting',
+      table_name: 'settings',
+      record_id: row.id,
+      new_data: row,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
+    res.status(201).json(row);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Setting already exists for this clinic' });
     next(e);
@@ -67,7 +78,18 @@ exports.update = async (req, res, next) => {
       [key, value ? JSON.stringify(value) : null, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Setting not found' });
-    res.json(result.rows[0]);
+    const row = result.rows[0];
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    const audit = require('../utils/audit');
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Updated setting',
+      table_name: 'settings',
+      record_id: row.id,
+      new_data: row,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
+    res.json(row);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Setting already exists for this clinic' });
     next(e);
@@ -82,6 +104,16 @@ exports.delete = async (req, res, next) => {
       [id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Setting not found' });
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    const audit = require('../utils/audit');
+    audit.logAudit({
+      user_id: auditUserId,
+      action: 'Deleted setting',
+      table_name: 'settings',
+      record_id: id,
+      new_data: null,
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
     res.json({ success: true });
   } catch (e) {
     next(e);

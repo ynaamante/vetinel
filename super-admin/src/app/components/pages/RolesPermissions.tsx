@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect } from 'react';
-import { Shield, Save, X, CheckCircle, AlertTriangle, Plus, Trash2 } from 'lucide-react';
+import { Shield, Save, X, CheckCircle, AlertTriangle, Plus, Trash2, Edit3 } from 'lucide-react';
 
 type PermissionType = 'view' | 'create' | 'edit' | 'delete' | 'export';
 
@@ -55,7 +55,7 @@ const initialRoles: Role[] = [];
 
 export function RolesPermissions() {
   const [roles, setRoles] = useState<Role[]>(initialRoles);
-  const [selectedRole, setSelectedRole] = useState<string>('');
+  const [selectedRole, setSelectedRole] = useState<number | null>(null);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPermissionWarning, setShowPermissionWarning] = useState(false);
@@ -64,29 +64,56 @@ export function RolesPermissions() {
     type: PermissionType;
   } | null>(null);
   const [showAddRoleModal, setShowAddRoleModal] = useState(false);
+  const [showEditRoleModal, setShowEditRoleModal] = useState(false);
   const [showDeleteRoleModal, setShowDeleteRoleModal] = useState(false);
+  const [roleToEdit, setRoleToEdit] = useState<number | null>(null);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDescription, setNewRoleDescription] = useState('');
+  const [editRoleName, setEditRoleName] = useState('');
+  const [editRoleDescription, setEditRoleDescription] = useState('');
+
+  const fetchRoles = async () => {
+    try {
+      const response = await fetch('/api/roles');
+      if (!response.ok) throw new Error('Failed to fetch roles');
+      const data = await response.json();
+      const normalizedRoles = (data || []).map(normalizeRole);
+      setRoles(normalizedRoles);
+      if (normalizedRoles.length > 0) setSelectedRole(normalizedRoles[0].id ?? null);
+    } catch (error) {
+      console.error('Failed to fetch roles:', error);
+      alert('Failed to load roles. Please check your server connection.');
+    }
+  };
 
   // Fetch roles from API on component mount
   useEffect(() => {
-    const fetchRoles = async () => {
-      try {
-        const response = await fetch('/api/roles');
-        if (!response.ok) throw new Error('Failed to fetch roles');
-        const data = await response.json();
-        setRoles(data || []);
-        if (data && data.length > 0) setSelectedRole(data[0].name);
-      } catch (error) {
-        console.error('Failed to fetch roles:', error);
-        alert('Failed to load roles. Please check your server connection.');
-      }
-    };
     fetchRoles();
   }, []);
 
+  const defaultPermissionValues: Record<PermissionType, boolean> = {
+    view: false,
+    create: false,
+    edit: false,
+    delete: false,
+    export: false,
+  };
+
+  const normalizeRole = (role: any): Role => ({
+    ...role,
+    id: role.id != null ? Number(role.id) : undefined,
+    permissions:
+      typeof role.permissions === 'string'
+        ? JSON.parse(role.permissions)
+        : role.permissions,
+  });
+
   const getCurrentRole = (): Role | undefined => {
-    return roles.find((role) => role.name === selectedRole);
+    return roles.find((role) => role.id == selectedRole);
+  };
+
+  const getPermissionsForFeature = (role: Role | undefined, feature: string) => {
+    return role?.permissions[feature] ?? { ...defaultPermissionValues };
   };
 
   const getPermissionCount = (type: PermissionType) => {
@@ -98,7 +125,7 @@ export function RolesPermissions() {
   const togglePermission = (feature: string, type: PermissionType) => {
     const currentRole = getCurrentRole();
     if (!currentRole) return;
-    const currentValue = currentRole.permissions[feature][type];
+    const currentValue = currentRole.permissions[feature]?.[type] ?? false;
 
     // Show warning for critical permissions
     const criticalFeatures = ['User & Role Management', 'Financial Monitoring', 'Audit Trail'];
@@ -116,14 +143,15 @@ export function RolesPermissions() {
   const applyPermissionToggle = (feature: string, type: PermissionType) => {
     setRoles((prevRoles) =>
       prevRoles.map((role) => {
-        if (role.name === selectedRole) {
+        if (role.id === selectedRole) {
+          const currentFeaturePermissions = role.permissions[feature] ?? { ...defaultPermissionValues };
           return {
             ...role,
             permissions: {
               ...role.permissions,
               [feature]: {
-                ...role.permissions[feature],
-                [type]: !role.permissions[feature][type],
+                ...currentFeaturePermissions,
+                [type]: !currentFeaturePermissions[type],
               },
             },
           };
@@ -159,19 +187,35 @@ export function RolesPermissions() {
     try {
       const token = localStorage.getItem('vetintel_token');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+        console.log('Sending token for role update');
+      } else {
+        console.warn('No token found in localStorage');
+      }
+
+      const requestBody = {
+        name: currentRole.name,
+        description: currentRole.description,
+        permissions: currentRole.permissions,
+      };
+      console.log('Updating role:', currentRole.id, requestBody);
 
       const response = await fetch(`/api/roles/${currentRole.id}`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({
-          name: currentRole.name,
-          description: currentRole.description,
-          permissions: currentRole.permissions,
-        }),
+        body: JSON.stringify(requestBody),
       });
-      if (!response.ok) throw new Error('Failed to save role');
-      const updatedRole = await response.json();
+      
+      console.log('Role update response status:', response.status);
+      
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        const errorMsg = errorBody?.error || `HTTP ${response.status}: Failed to save role`;
+        console.error('Role update failed:', errorMsg);
+        throw new Error(errorMsg);
+      }
+      const updatedRole = normalizeRole(await response.json());
       setRoles((prevRoles) =>
         prevRoles.map((role) => (role.id === updatedRole.id ? updatedRole : role))
       );
@@ -181,7 +225,7 @@ export function RolesPermissions() {
       }, 2000);
     } catch (error) {
       console.error('Failed to save role:', error);
-      alert('Failed to save role. Please try again.');
+      alert(`Failed to save role: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -218,9 +262,9 @@ export function RolesPermissions() {
         body: JSON.stringify(newRole),
       });
       if (!response.ok) throw new Error('Failed to create role');
-      const createdRole = await response.json();
+      const createdRole = normalizeRole(await response.json());
       setRoles([...roles, createdRole]);
-      setSelectedRole(createdRole.name);
+      setSelectedRole(createdRole.id ?? null);
       setShowAddRoleModal(false);
       setNewRoleName('');
       setNewRoleDescription('');
@@ -230,17 +274,66 @@ export function RolesPermissions() {
     }
   };
 
+  const openEditRoleModal = (role: Role) => {
+    setRoleToEdit(role.id ?? null);
+    setEditRoleName(role.name);
+    setEditRoleDescription(role.description || '');
+    setShowEditRoleModal(true);
+  };
+
+  const handleEditRole = async () => {
+    if (!roleToEdit || !editRoleName.trim()) return;
+    const role = roles.find((item) => item.id === roleToEdit);
+    if (!role) return;
+
+    const updatedRole: Role = {
+      ...role,
+      name: editRoleName,
+      description: editRoleDescription,
+    };
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/roles/${role.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          name: updatedRole.name,
+          description: updatedRole.description,
+          permissions: updatedRole.permissions,
+        }),
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.error || 'Failed to update role');
+      }
+
+      const result = normalizeRole(await response.json());
+      setRoles((prevRoles) =>
+        prevRoles.map((item) => (item.id == result.id ? result : item))
+      );
+      if (selectedRole == roleToEdit) setSelectedRole(result.id ?? null);
+
+      setShowEditRoleModal(false);
+      setRoleToEdit(null);
+      await fetchRoles();
+    } catch (error) {
+      console.error('Failed to edit role:', error);
+      alert(error instanceof Error ? error.message : 'Failed to update role. Please try again.');
+    }
+  };
+
   const handleDeleteRole = async () => {
     const currentRole = getCurrentRole();
     if (!currentRole) return;
-    if (roles.length <= 1) {
-      alert('Cannot delete the last role');
-      return;
-    }
 
     if (!currentRole.id) {
-      setRoles(roles.filter((r) => r.name !== selectedRole));
-      setSelectedRole(roles[0].name === selectedRole ? roles[1].name : roles[0].name);
+      const remainingRoles = roles.filter((r) => r.id !== selectedRole);
+      setRoles(remainingRoles);
+      setSelectedRole(remainingRoles.length > 0 ? remainingRoles[0].id ?? null : null);
       setShowDeleteRoleModal(false);
       return;
     }
@@ -255,14 +348,19 @@ export function RolesPermissions() {
         headers,
       });
       if (!response.ok) throw new Error('Failed to delete role');
-      setRoles(roles.filter((r) => r.name !== selectedRole));
-      setSelectedRole(roles[0].name === selectedRole ? roles[1].name : roles[0].name);
+
+      const remainingRoles = roles.filter((r) => r.id !== selectedRole);
+      setRoles(remainingRoles);
+      setSelectedRole(remainingRoles.length > 0 ? remainingRoles[0].id ?? null : null);
       setShowDeleteRoleModal(false);
     } catch (error) {
       console.error('Failed to delete role:', error);
       alert('Failed to delete role. Please try again.');
     }
   };
+
+  const currentRole = getCurrentRole();
+  const hasRoles = roles.length > 0;
 
   return (
     <div className="p-6 space-y-6">
@@ -278,7 +376,12 @@ export function RolesPermissions() {
         </div>
         <button
           onClick={handleSaveChanges}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          disabled={!hasRoles}
+          className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${
+            hasRoles
+              ? 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
           <Save className="w-4 h-4" />
           Save Changes
@@ -309,25 +412,46 @@ export function RolesPermissions() {
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {roles.map((role) => (
-            <button
-              key={role.name}
-              onClick={() => setSelectedRole(role.name)}
-              className={`p-4 rounded-lg border-2 text-left transition-all ${
-                selectedRole === role.name
-                  ? 'border-blue-600 bg-blue-50'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Shield className="w-5 h-5 text-gray-600" />
-                <div>
-                  <div className="font-semibold text-gray-900">{role.name}</div>
-                  <div className="text-sm text-gray-500">{role.description}</div>
+          {roles.length === 0 ? (
+            <div className="col-span-1 md:col-span-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-gray-500">
+              No roles available. Create a new role to get started.
+            </div>
+          ) : (
+            roles.map((role) => (
+              <div
+                key={role.id}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  selectedRole === role.id
+                    ? 'border-blue-600 bg-blue-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole(role.id ?? null)}
+                    className="text-left flex-1"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Shield className="w-5 h-5 text-gray-600" />
+                      <div>
+                        <div className="font-semibold text-gray-900">{role.name}</div>
+                        <div className="text-sm text-gray-500">{role.description}</div>
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openEditRoleModal(role)}
+                    className="inline-flex items-center gap-2 px-2 py-1 rounded-md border border-gray-200 bg-white text-xs text-gray-600 hover:bg-gray-50"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Edit
+                  </button>
                 </div>
               </div>
-            </button>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -335,7 +459,7 @@ export function RolesPermissions() {
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
-            Permission Matrix - {selectedRole}
+            Permission Matrix - {currentRole?.name ?? selectedRole}
           </h2>
           <p className="text-sm text-gray-500 mt-1">
             Toggle permissions for each feature module
@@ -367,16 +491,22 @@ export function RolesPermissions() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {!getCurrentRole() ? (
+              {!hasRoles ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                     No roles available. Create a new role to get started.
                   </td>
                 </tr>
+              ) : !currentRole ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    Selected role is unavailable. Please choose a different role.
+                  </td>
+                </tr>
               ) : (
                 Object.entries(featureCategories).map(([category, features]) => (
-                  <>
-                    <tr key={category} className="bg-gray-50">
+                  <Fragment key={category}>
+                    <tr className="bg-gray-50">
                       <td
                         colSpan={6}
                         className="px-6 py-3 text-sm font-semibold text-gray-900"
@@ -385,62 +515,61 @@ export function RolesPermissions() {
                       </td>
                     </tr>
                     {features.map((feature) => {
-                      const currentRole = getCurrentRole();
-                      const permissions = currentRole?.permissions[feature];
+                      const permissions = getPermissionsForFeature(currentRole, feature);
                       return (
                         <tr key={feature} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-blue-600">
-                          {feature}
-                        </td>
-                        {(['view', 'create', 'edit', 'delete', 'export'] as PermissionType[]).map(
-                          (type) => (
-                            <td key={type} className="px-6 py-4 text-center">
-                              <button
-                                onClick={() => togglePermission(feature, type)}
-                                className={`w-6 h-6 rounded flex items-center justify-center transition-all hover:scale-110 ${
-                                  permissions[type]
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-200 text-gray-400'
-                                }`}
-                              >
-                                {permissions[type] ? (
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M5 13l4 4L19 7"
-                                    />
-                                  </svg>
-                                ) : (
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M6 18L18 6M6 6l12 12"
-                                    />
-                                  </svg>
-                                )}
-                              </button>
-                            </td>
-                          )
-                        )}
-                      </tr>
-                    );
-                  })}
-                </>
-              ))
+                          <td className="px-6 py-4 text-sm text-blue-600">
+                            {feature}
+                          </td>
+                          {(['view', 'create', 'edit', 'delete', 'export'] as PermissionType[]).map(
+                            (type) => (
+                              <td key={type} className="px-6 py-4 text-center">
+                                <button
+                                  onClick={() => togglePermission(feature, type)}
+                                  className={`w-6 h-6 rounded flex items-center justify-center transition-all hover:scale-110 ${
+                                    permissions[type]
+                                      ? 'bg-blue-600 text-white'
+                                      : 'bg-gray-200 text-gray-400'
+                                  }`}
+                                >
+                                  {permissions[type] ? (
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M5 13l4 4L19 7"
+                                      />
+                                    </svg>
+                                  ) : (
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                      />
+                                    </svg>
+                                  )}
+                                </button>
+                              </td>
+                            )
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </Fragment>
+                ))
               )}
             </tbody>
           </table>
@@ -618,6 +747,65 @@ export function RolesPermissions() {
         </div>
       )}
 
+      {/* Edit Role Modal */}
+      {showEditRoleModal && (
+        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Edit Role</h2>
+                <button
+                  onClick={() => setShowEditRoleModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Role Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editRoleName}
+                    onChange={(e) => setEditRoleName(e.target.value)}
+                    placeholder="e.g., Nurse"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={editRoleDescription}
+                    onChange={(e) => setEditRoleDescription(e.target.value)}
+                    placeholder="e.g., Medical assistant role"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowEditRoleModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditRole}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Role Modal */}
       {showDeleteRoleModal && (
         <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50">
@@ -630,7 +818,7 @@ export function RolesPermissions() {
                 Delete Role?
               </h2>
               <p className="text-sm text-gray-600 text-center mt-2">
-                Are you sure you want to delete the <strong>{selectedRole}</strong> role? This
+                Are you sure you want to delete the <strong>{currentRole?.name ?? selectedRole}</strong> role? This
                 action cannot be undone and will affect all users assigned to this role.
               </p>
               <div className="flex gap-3 mt-6">

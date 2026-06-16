@@ -1,18 +1,40 @@
 import { useState } from 'react';
-import { USERS } from '../data/mockData';
 import { Icons } from '../icons';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail]   = useState('');
   const [pw, setPw]         = useState('');
   const [show, setShow]     = useState(false);
   const [err, setErr]       = useState('');
+  const [loading, setLoading] = useState(false);
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    const user = USERS.find(u => u.email === email && u.password === pw);
-    if (user) { setErr(''); onLogin(user); }
-    else setErr('Incorrect email or password.');
+    setLoading(true);
+    setErr('');
+
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pw }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setErr(data.error || 'Incorrect email or password.');
+        return;
+      }
+
+      onLogin(data);
+    } catch (error) {
+      console.error('Login failed', error);
+      setErr('Unable to connect to the server.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -97,7 +119,9 @@ export default function LoginPage({ onLogin }) {
               <a href="#" style={s.forgotLink}>Forgot password?</a>
             </div>
 
-            <button type="submit" style={s.btnPrimary}>Sign in</button>
+            <button type="submit" style={s.btnPrimary} disabled={loading}>
+              {loading ? 'Signing in…' : 'Sign in'}
+            </button>
             {err && <p style={s.err}>{err}</p>}
           </form>
         </div>

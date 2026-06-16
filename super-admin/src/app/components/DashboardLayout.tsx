@@ -9,7 +9,6 @@ import {
   Settings,
   Search,
   Bell,
-  ChevronDown,
   Menu,
   X,
   LogOut,
@@ -46,14 +45,12 @@ const navigation = [
   { name: 'User Management', path: '/users', icon: Users },
   { name: 'Roles & Permissions', path: '/roles', icon: Shield },
   { name: 'Audit Trail', path: '/audit', icon: FileText },
-  { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
 export function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread'>('all');
@@ -103,18 +100,18 @@ export function DashboardLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 border-r border-slate-800 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto flex flex-col ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200">
+        <div className="flex h-16 items-center justify-between px-6 border-b border-slate-700">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-blue-500/20 rounded-2xl flex items-center justify-center ring-1 ring-white/10">
               <Building2 className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="font-semibold text-gray-900">VetIntel</div>
-              <div className="text-xs text-gray-500">Super Admin</div>
+              <div className="font-semibold text-white">VetIntel</div>
+              <div className="text-xs text-slate-400">Super Admin</div>
             </div>
           </div>
           <button
@@ -125,7 +122,7 @@ export function DashboardLayout() {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navigation.map((item) => {
             const isActive =
               item.path === '/'
@@ -136,10 +133,10 @@ export function DashboardLayout() {
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3 py-3 rounded-3xl text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-blue-600 text-white shadow-[0_10px_30px_-15px_rgba(59,130,246,0.35)]'
+                    : 'text-slate-300 hover:bg-white/20 hover:text-slate-900'
                 }`}
               >
                 <item.icon className="w-5 h-5" />
@@ -148,6 +145,24 @@ export function DashboardLayout() {
             );
           })}
         </nav>
+
+        <div className="border-t border-slate-700 px-3 py-4">
+          <Link
+            to="/settings"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-3 px-3 py-2 rounded-3xl text-sm font-medium text-slate-200 hover:bg-white hover:text-slate-900"
+          >
+            <Settings className="w-5 h-5 text-slate-200" />
+            Settings
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="mt-2 w-full flex items-center gap-3 px-3 py-2 rounded-3xl text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-600"
+          >
+            <LogOut className="w-5 h-5 text-red-400" />
+            Sign Out
+          </button>
+        </div>
       </aside>
 
       {/* Main content */}
@@ -178,7 +193,7 @@ export function DashboardLayout() {
             {/* Notification Bell */}
             <div className="relative" ref={notifRef}>
               <button
-                onClick={() => { setShowNotifications(!showNotifications); setShowProfileMenu(false); }}
+                onClick={() => setShowNotifications(!showNotifications)}
                 className="relative text-gray-600 hover:text-gray-900"
               >
                 <Bell className="w-6 h-6" />
@@ -278,38 +293,14 @@ export function DashboardLayout() {
               )}
             </div>
 
-            <div className="relative pl-4 border-l border-gray-200">
-              <button
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center gap-3"
-              >
-                <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
-                  <span className="text-sm text-white">SA</span>
-                </div>
-                <div className="hidden md:block text-left">
-                  <div className="text-sm font-medium text-gray-900">
-                    Super Admin
-                  </div>
-                  <div className="text-xs text-gray-500">admin@vetintel.com</div>
-                </div>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              </button>
-
-              {showProfileMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                  <div className="px-4 py-3 border-b border-gray-200">
-                    <p className="text-sm font-medium text-gray-900">Super Admin</p>
-                    <p className="text-xs text-gray-500">admin@vetintel.com</p>
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </button>
-                </div>
-              )}
+            <div className="relative pl-4 border-l border-gray-200 hidden md:flex items-center gap-3">
+              <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
+                <span className="text-sm text-white">SA</span>
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-medium text-gray-900">Super Admin</div>
+                <div className="text-xs text-gray-500">admin@vetintel.com</div>
+              </div>
             </div>
           </div>
         </header>

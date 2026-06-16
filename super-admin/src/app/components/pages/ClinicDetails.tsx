@@ -41,9 +41,8 @@ const initialClinicData: ClinicInfo = {
   totalStaff: 0,
 };
 
-// staff members will be loaded from /api/users filtered by clinic
+// staff members are loaded from /api/clinics/:id/staff
 // initial empty
-// TODO: add dedicated /api/clinics/:id/staff endpoint
 
 export function ClinicDetails() {
   const { id } = useParams();
@@ -52,6 +51,9 @@ export function ClinicDetails() {
   const [editForm, setEditForm] = useState({ name: '', owner: '', email: '', phone: '', address: '' });
   const [toast, setToast] = useState<string | null>(null);
   const [staffMembers, setStaffMembers] = useState<any[]>([]);
+  const [roleFilter, setRoleFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
 
   useEffect(() => {
     const loadClinic = async () => {
@@ -71,20 +73,8 @@ export function ClinicDetails() {
             status: clinicData.status || 'active',
             doctors: clinicData.doctors || 0,
             receptionists: clinicData.receptionists || 0,
-            totalStaff: clinicData.totalStaff || 0,
+            totalStaff: clinicData.totalStaff ?? clinicData.total_users ?? 0,
           });
-          // fetch users and filter by clinic id (or name)
-          const usersRes = await fetch('/api/users');
-          if (usersRes.ok) {
-            const users = await usersRes.json();
-            // user model returns clinic name in `clinic` or may include clinic_id; prefer filtering by clinic id if available
-            const filtered = users.filter((u: any) => {
-              if (u.clinic && typeof u.clinic === 'string') return u.clinic === clinicData.name;
-              if (u.clinic_id) return String(u.clinic_id) === String(id);
-              return false;
-            });
-            setStaffMembers(filtered.map((u: any) => ({ id: u.id, name: u.name, email: u.email, role: u.role || 'User', status: u.is_active ? 'Active' : 'Disabled', lastLogin: u.updated_at ? new Date(u.updated_at).toLocaleString() : 'Never' })));
-          }
         }
       } catch (error) {
         console.error('Failed to load clinic details:', error);
@@ -94,16 +84,98 @@ export function ClinicDetails() {
     loadClinic();
   }, [id]);
 
+  useEffect(() => {
+    const loadStaff = async () => {
+      if (!id) return;
+      try {
+        const params = new URLSearchParams();
+        if (roleFilter !== 'All') params.set('role', roleFilter);
+        if (statusFilter !== 'All') params.set('status', statusFilter);
+        const staffRes = await fetch(`/api/clinics/${id}/staff${params.toString() ? `?${params.toString()}` : ''}`);
+        if (staffRes.ok) {
+          const staff = await staffRes.json();
+          type StaffMember = {
+            id: number;
+            name: string;
+            email: string;
+            role: string;
+            status: string;
+            lastLogin: string;
+          };
+
+          const normalizedStaff: StaffMember[] = staff.map((u: any) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role || 'User',
+            status: u.is_active ? 'Active' : 'Disabled',
+            lastLogin: u.updated_at ? new Date(u.updated_at).toLocaleString() : 'Never',
+          }));
+          setStaffMembers(normalizedStaff);
+          setAvailableRoles(
+            Array.from(new Set(normalizedStaff.map(u => u.role))).filter((value): value is string => Boolean(value))
+          );
+        }
+      } catch (error) {
+        console.error('Failed to load clinic staff:', error);
+      }
+    };
+
+    loadStaff();
+  }, [id, roleFilter, statusFilter]);
+
+  function showToast(message: string) {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  }
+
   function openEdit() {
     setEditForm({ name: clinic.name, owner: clinic.owner, email: clinic.email, phone: clinic.phone, address: clinic.address });
     setShowEditModal(true);
   }
 
-  function saveEdit() {
-    setClinic(prev => ({ ...prev, ...editForm }));
-    setShowEditModal(false);
-    setToast('Clinic information updated successfully.');
-    setTimeout(() => setToast(null), 3000);
+  async function saveEdit() {
+    if (!id) return;
+
+    try {
+      const token = localStorage.getItem('vetintel_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`/api/clinics/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          name: editForm.name,
+          email: editForm.email,
+          phone: editForm.phone,
+          address: editForm.address,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showToast(errorData.error || 'Failed to update clinic.');
+        return;
+      }
+
+      const updatedClinic = await response.json();
+      setClinic((prev) => ({
+        ...prev,
+        name: updatedClinic.name,
+        email: updatedClinic.email || '',
+        phone: updatedClinic.phone || '',
+        address: updatedClinic.address || '',
+        registrationDate: updatedClinic.created_at || prev.registrationDate,
+        status: updatedClinic.status || prev.status,
+      }));
+      setShowEditModal(false);
+      showToast('Clinic information updated successfully.');
+      setTimeout(() => setToast(null), 3000);
+    } catch (error) {
+      console.error('Failed to update clinic:', error);
+      showToast('Failed to update clinic.');
+    }
   }
 
   const profileFields = [
@@ -186,7 +258,36 @@ export function ClinicDetails() {
       {/* Staff List */}
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Staff Members</h2>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <h2 className="text-lg font-semibold text-gray-900">Staff Members</h2>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <label className="text-sm text-gray-600">
+                Role
+                <select
+                  value={roleFilter}
+                  onChange={e => setRoleFilter(e.target.value)}
+                  className="ml-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option>All</option>
+                  {availableRoles.map(role => (
+                    <option key={role}>{role}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm text-gray-600">
+                Status
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="ml-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option>All</option>
+                  <option>Active</option>
+                  <option>Disabled</option>
+                </select>
+              </label>
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -198,24 +299,35 @@ export function ClinicDetails() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {staffMembers.map(staff => (
-                <tr key={staff.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm text-white">{staff.name.split(' ').map(n => n[0]).join('')}</span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{staff.name}</span>
-                    </div>
+              {staffMembers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
+                    No staff members found for this clinic with the selected filters.
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{staff.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{staff.role}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">{staff.status}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{staff.lastLogin}</td>
                 </tr>
-              ))}
+              ) : (
+                staffMembers.map(staff => (
+                  <tr key={staff.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm text-white">{staff.name
+                            .split(' ')
+                            .map((n: string) => n[0])
+                            .join('')}</span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">{staff.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{staff.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{staff.role}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">{staff.status}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{staff.lastLogin}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
