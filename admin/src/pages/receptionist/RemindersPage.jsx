@@ -1,64 +1,103 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Topbar from '../../components/Topbar';
 import { Icons } from '../../icons';
+import { canViewFeature } from '../../utils/permissionUtils';
 
-const REMINDERS = [
-  { id: 'REM-001', pet: 'Max',    owner: 'John Smith',    email: 'john.smith@email.com',  phone: '(555) 123-4567', type: 'vaccination', desc: 'Rabies Booster',        due: '2026-04-25', status: 'overdue'  },
-  { id: 'REM-002', pet: 'Bella',  owner: 'Emma Wilson',   email: 'emma.w@email.com',      phone: '(555) 456-7890', type: 'followup',    desc: 'Post-Dental Checkup',   due: '2026-04-28', status: 'due-soon' },
-  { id: 'REM-003', pet: 'Charlie',owner: 'Mike Davis',    email: 'mike.davis@email.com',  phone: '(555) 345-6789', type: 'followup',    desc: 'Surgery Follow-up',     due: '2026-04-29', status: 'due-soon' },
-  { id: 'REM-004', pet: 'Luna',   owner: 'Sarah Johnson', email: 'sarah.j@email.com',     phone: '(555) 234-5678', type: 'vaccination', desc: 'DHPP Vaccine',          due: '2026-04-30', status: 'due-soon' },
-  { id: 'REM-005', pet: 'Rocky',  owner: 'David Brown',   email: 'd.brown@email.com',     phone: '(555) 567-8901', type: 'checkup',     desc: 'Annual Wellness Exam',  due: '2026-05-05', status: 'upcoming' },
-  { id: 'REM-006', pet: 'Daisy',  owner: 'Lisa Taylor',   email: 'lisa.taylor@email.com', phone: '(555) 678-9012', type: 'vaccination', desc: 'Bordetella Vaccine',    due: '2026-05-10', status: 'upcoming' },
-  { id: 'REM-007', pet: 'Cooper', owner: 'Tom Anderson',  email: 'tom.a@email.com',       phone: '(555) 789-0123', type: 'vaccination', desc: 'Leptospirosis Vaccine', due: '2026-05-12', status: 'upcoming' },
-  { id: 'REM-008', pet: 'Milo',   owner: 'Jessica Lee',   email: 'jess.lee@email.com',    phone: '(555) 890-1234', type: 'checkup',     desc: '6-Month Checkup',       due: '2026-05-15', status: 'upcoming' },
-];
-
-const TYPE_COLORS = {
-  vaccination: { bg: '#f5f3ff', color: '#7c3aed' },
-  followup:    { bg: '#dcfce7', color: '#16a34a' },
-  checkup:     { bg: '#eff6ff', color: '#1d4ed8' },
-};
-
-const STATUS_COLORS = {
-  overdue:  { bg: '#fee2e2', color: '#dc2626' },
-  'due-soon':{ bg: '#fef9c3', color: '#ca8a04' },
-  upcoming: { bg: '#eff6ff', color: '#1d4ed8' },
-};
-
-function TypeBadge({ type }) {
-  const c = TYPE_COLORS[type] || { bg: '#f1f5f9', color: '#64748b' };
-  return <span style={{ padding: '3px 10px', borderRadius: 20, background: c.bg, color: c.color, fontSize: '.7rem', fontWeight: 600 }}>{type}</span>;
-}
-
-function StatusBadge({ status }) {
-  const c = STATUS_COLORS[status] || { bg: '#f1f5f9', color: '#64748b' };
-  return <span style={{ padding: '3px 10px', borderRadius: 20, background: c.bg, color: c.color, fontSize: '.7rem', fontWeight: 600 }}>{status}</span>;
+function formatDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function RemindersPage({ user }) {
+  const [reminders, setReminders] = useState([]);
   const [tab, setTab] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const filtered = tab === 'all' ? REMINDERS : REMINDERS.filter(r => r.status === tab);
+  const canView = canViewFeature(user.permissions, user.role, 'Due Dates & Reminders');
+
+  useEffect(() => {
+    if (!user || !user.token) return;
+    if (!canView) return;
+
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    const params = new URLSearchParams();
+    if (user.clinic_id) params.set('clinic_id', user.clinic_id);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const headers = { Authorization: `Bearer ${user.token}` };
+
+    const loadReminders = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`${apiUrl}/clinic-records/reminders${query}`, { headers });
+        if (!response.ok) throw new Error('Failed to load reminders');
+        const data = await response.json();
+        setReminders(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error(err);
+        setError('Unable to load reminders from the database.');
+        setReminders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReminders();
+  }, [user, canView]);
+
+  const filtered = useMemo(() => {
+    if (tab === 'all') return reminders;
+    return reminders.filter((reminder) => String(reminder.status || '').toLowerCase() === tab);
+  }, [reminders, tab]);
+
   const tabs = [
-    { id: 'all',      label: 'All Reminders' },
-    { id: 'overdue',  label: 'Overdue'       },
-    { id: 'due-soon', label: 'Due Soon'      },
-    { id: 'upcoming', label: 'Upcoming'      },
+    { id: 'all', label: 'All Reminders' },
+    { id: 'overdue', label: 'Overdue' },
+    { id: 'due-soon', label: 'Due Soon' },
+    { id: 'upcoming', label: 'Upcoming' },
   ];
+
+  const stats = useMemo(() => ({
+    overdue: reminders.filter((reminder) => String(reminder.status || '').toLowerCase() === 'overdue').length,
+    dueSoon: reminders.filter((reminder) => String(reminder.status || '').toLowerCase() === 'due-soon').length,
+    upcoming: reminders.filter((reminder) => String(reminder.status || '').toLowerCase() === 'upcoming').length,
+    total: reminders.length,
+  }), [reminders]);
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Due Dates & Reminders" subtitle="Vaccination reminders and follow-up schedules" />
+        <div style={s.page}>
+          <div style={s.pageHd}>
+            <div>
+              <div style={s.pageTitle}>Due Dates & Reminders</div>
+              <div style={s.pageSub}>You do not have permission to view this page.</div>
+            </div>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: 28, color: '#475569' }}>
+            <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>Access denied</h2>
+            <p style={{ marginTop: 12 }}>Your role (<strong>{user.role}</strong>) does not currently have permission to view Reminders.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={s.main}>
       <Topbar user={user} title="Due Dates & Reminders" subtitle="Vaccination reminders and follow-up schedules" />
       <div style={s.page}>
-
-        {/* Stats */}
         <div style={s.statsGrid}>
           {[
-            { label: 'Overdue',  value: '1', icon: Icons.shield,   iconBg: '#fef2f2', iconColor: '#dc2626' },
-            { label: 'Due Soon', value: '3', icon: Icons.calendar, iconBg: '#fffbeb', iconColor: '#d97706' },
-            { label: 'Upcoming', value: '4', icon: Icons.file,     iconBg: '#eff6ff', iconColor: '#1d4ed8' },
-            { label: 'Total',    value: '8', icon: Icons.check,    iconBg: '#f0fdf4', iconColor: '#16a34a' },
-          ].map(c => (
+            { label: 'Overdue', value: stats.overdue, icon: Icons.shield, iconBg: '#fef2f2', iconColor: '#dc2626' },
+            { label: 'Due Soon', value: stats.dueSoon, icon: Icons.calendar, iconBg: '#fffbeb', iconColor: '#d97706' },
+            { label: 'Upcoming', value: stats.upcoming, icon: Icons.file, iconBg: '#eff6ff', iconColor: '#1d4ed8' },
+            { label: 'Total', value: stats.total, icon: Icons.check, iconBg: '#f0fdf4', iconColor: '#16a34a' },
+          ].map((c) => (
             <div key={c.label} style={s.statCard}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -73,69 +112,72 @@ export default function RemindersPage({ user }) {
           ))}
         </div>
 
-        {/* Tab Bar */}
         <div style={s.tabBar}>
-          {tabs.map(t => (
+          {tabs.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{ ...s.tabBtn, ...(tab === t.id ? s.tabActive : {}) }}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {/* Table */}
         <div style={s.card}>
           <div style={s.tableTitle}>All Reminders ({filtered.length})</div>
-          <table style={s.table}>
-            <thead>
-              <tr>{['ID','Pet Name','Owner','Contact','Type','Description','Due Date','Status','Actions'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
-            </thead>
-            <tbody>
-              {filtered.map((r, i) => (
-                <tr key={i}>
-                  <td style={{ ...s.td, fontWeight: 600 }}>{r.id}</td>
-                  <td style={{ ...s.td, fontWeight: 600 }}>{r.pet}</td>
-                  <td style={s.td}>{r.owner}</td>
-                  <td style={s.tdMuted}>
-                    <div style={{ fontSize: '.75rem' }}>{r.email}</div>
-                    <div style={{ fontSize: '.72rem', marginTop: 2 }}>{r.phone}</div>
-                  </td>
-                  <td style={s.td}><TypeBadge type={r.type} /></td>
-                  <td style={s.td}>{r.desc}</td>
-                  <td style={s.tdMuted}>{r.due}</td>
-                  <td style={s.td}><StatusBadge status={r.status} /></td>
-                  <td style={s.td}>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button style={s.emailBtn}>
-                        <span style={{ width: 12, height: 12, display: 'flex' }}>{Icons.mail}</span>
-                        Email
-                      </button>
-                      <button style={s.smsBtn}>
-                        <span style={{ width: 12, height: 12, display: 'flex' }}>{Icons.bell}</span>
-                        SMS
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {loading ? (
+            <div style={{ padding: 40, color: '#64748b' }}>Loading reminders…</div>
+          ) : error ? (
+            <div style={{ padding: 40, color: '#dc2626' }}>{error}</div>
+          ) : (
+            <table style={s.table}>
+              <thead>
+                <tr>{['ID', 'Pet Name', 'Owner', 'Contact', 'Type', 'Description', 'Due Date', 'Status', 'Actions'].map((h) => <th key={h} style={s.th}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={9} style={{ ...s.td, color: '#64748b' }}>No reminders found for this filter.</td></tr>
+                ) : (
+                  filtered.map((reminder) => (
+                    <tr key={reminder.id}>
+                      <td style={{ ...s.td, fontWeight: 600 }}>{reminder.id}</td>
+                      <td style={{ ...s.td, fontWeight: 600 }}>{reminder.pet || 'N/A'}</td>
+                      <td style={s.td}>{reminder.owner || 'N/A'}</td>
+                      <td style={s.tdMuted}>{reminder.contact || 'N/A'}</td>
+                      <td style={s.td}>{reminder.type || 'N/A'}</td>
+                      <td style={s.tdMuted}>{reminder.description || 'N/A'}</td>
+                      <td style={s.tdMuted}>{formatDate(reminder.due_date)}</td>
+                      <td style={s.td}>{reminder.status || 'Unknown'}</td>
+                      <td style={s.td}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button style={s.emailBtn} disabled>
+                            <span style={{ width: 12, height: 12, display: 'flex' }}>{Icons.mail}</span>
+                            Email
+                          </button>
+                          <button style={s.smsBtn} disabled>
+                            <span style={{ width: 12, height: 12, display: 'flex' }}>{Icons.bell}</span>
+                            SMS
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {/* Quick Actions */}
         <div style={{ ...s.card, marginTop: 16 }}>
           <div style={s.tableTitle}>Quick Actions</div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <button style={s.quickBtn}>
+            <button style={s.quickBtn} disabled>
               <span style={{ width: 14, height: 14, display: 'flex' }}>{Icons.mail}</span>
               Send All Overdue Reminders
             </button>
-            <button style={s.quickBtn}>
+            <button style={s.quickBtn} disabled>
               <span style={{ width: 14, height: 14, display: 'flex' }}>{Icons.bell}</span>
               Send All Due Soon Reminders
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -144,6 +186,9 @@ export default function RemindersPage({ user }) {
 const s = {
   main: { flex: 1, overflowY: 'auto', background: '#f4f6f9' },
   page: { padding: '24px 28px' },
+  pageHd: { marginBottom: 20 },
+  pageTitle: { fontFamily: "'Syne',sans-serif", fontSize: '1.3rem', fontWeight: 600, letterSpacing: '-.02em' },
+  pageSub: { fontSize: '.78rem', color: '#64748b', marginTop: 3 },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 },
   statCard: { background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: '16px 20px' },
   tabBar: { display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 4, marginBottom: 16, gap: 2 },

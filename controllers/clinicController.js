@@ -193,3 +193,23 @@ exports.getStaffByClinic = async (req, res, next) => {
     next(e);
   }
 };
+
+exports.logExport = async (req, res, next) => {
+  try {
+    const { format } = req.body;
+    const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
+    
+    audit.logAudit({
+      user_id: auditUserId,
+      action: `Exported clinics to ${format || 'PDF'}`,
+      table_name: 'clinics',
+      record_id: null,
+      new_data: { format: format || 'PDF', export_type: 'report' },
+      ip_address: req.ip || req.connection.remoteAddress,
+    });
+    
+    res.json({ success: true, message: 'Export logged' });
+  } catch (e) {
+    next(e);
+  }
+};

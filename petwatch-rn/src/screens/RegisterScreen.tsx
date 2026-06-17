@@ -7,35 +7,46 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { colors, spacing, radius } from '../theme/colors';
 
-export default function RegisterScreen({ navigation }: any) {
-  const { login } = useAuth();
-  const { colors: tc, isDark } = useTheme();
-  const [form, setForm] = useState({ name: '', email: '', phone: '', location: '', password: '', confirmPassword: '' });
-  const [loading, setLoading] = useState(false);
-  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
-  const s = styles(tc, isDark);
-
-  const handleRegister = async () => {
-    if (!form.name || !form.email || !form.password) { Toast.show({ type: 'error', text1: 'Please fill all required fields' }); return; }
-    if (form.password !== form.confirmPassword) { Toast.show({ type: 'error', text1: 'Passwords do not match' }); return; }
-    setLoading(true);
-    setTimeout(async () => { await login(form.email, form.name); Toast.show({ type: 'success', text1: 'Account created!' }); navigation.replace('ClinicSelection'); setLoading(false); }, 1000);
-  };
-
-  const Field = ({ label, field, icon, placeholder, keyboard = 'default', secure = false }: any) => (
-    <View style={{ marginBottom: 14 }}>
+function Field({ label, value, onChangeText, icon, placeholder, keyboard = 'default', secure = false, loading, tc, s }: any) {
+  return (
+    <View>
       <Text style={s.label}>{label}</Text>
       <View style={s.inputRow}>
-        <Ionicons name={icon} size={18} color={tc.textMuted} style={{ marginRight: 8 }} />
-        <TextInput style={[s.input, { flex: 1 }]} placeholder={placeholder} placeholderTextColor={tc.textMuted} value={(form as any)[field]} onChangeText={v => set(field, v)} keyboardType={keyboard} autoCapitalize="none" secureTextEntry={secure} />
+        <Ionicons name={icon} size={18} color={tc.textMuted} style={s.icon} />
+        <TextInput style={[s.input, { flex: 1 }]} placeholder={placeholder} placeholderTextColor={tc.textMuted} value={value} onChangeText={onChangeText} keyboardType={keyboard} autoCapitalize="none" secureTextEntry={secure} editable={!loading} />
       </View>
     </View>
   );
+}
+
+export default function RegisterScreen({ navigation }: any) {
+  const { login } = useAuth();
+  const { colors: tc, isDark } = useTheme();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [location, setLocation] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const s = styles(tc, isDark);
+
+  const handleRegister = async () => {
+    if (!name || !email || !password) { Toast.show({ type: 'error', text1: 'Please fill all required fields' }); return; }
+    if (password !== confirmPassword) { Toast.show({ type: 'error', text1: 'Passwords do not match' }); return; }
+    setLoading(true);
+    setTimeout(async () => { await login(email, name); Toast.show({ type: 'success', text1: 'Account created!' }); navigation.replace('ClinicSelection'); setLoading(false); }, 1000);
+  };
 
   return (
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
+        <ScrollView 
+          contentContainerStyle={s.container} 
+          keyboardShouldPersistTaps="always"
+          
+          showsVerticalScrollIndicator={false}
+        >
           <View style={s.brand}>
             <View style={s.logo}><Ionicons name="heart" size={36} color="#fff" /></View>
             <Text style={s.appName}>PetWatch</Text>
@@ -44,12 +55,12 @@ export default function RegisterScreen({ navigation }: any) {
           <View style={s.card}>
             <Text style={s.title}>Create Account</Text>
             <Text style={s.sub}>Join thousands of pet owners protecting their pets</Text>
-            <Field label="Full Name *" field="name" icon="person-outline" placeholder="John Doe" />
-            <Field label="Email *" field="email" icon="mail-outline" placeholder="your@email.com" keyboard="email-address" />
-            <Field label="Phone *" field="phone" icon="call-outline" placeholder="+1 (555) 123-4567" keyboard="phone-pad" />
-            <Field label="Location" field="location" icon="location-outline" placeholder="San Francisco, CA" />
-            <Field label="Password *" field="password" icon="lock-closed-outline" placeholder="••••••••" secure />
-            <Field label="Confirm Password *" field="confirmPassword" icon="lock-closed-outline" placeholder="••••••••" secure />
+            <Field label="Full Name *" value={name} onChangeText={setName} icon="person-outline" placeholder="John Doe" loading={loading} tc={tc} s={s} />
+            <Field label="Email *" value={email} onChangeText={setEmail} icon="mail-outline" placeholder="your@email.com" keyboard="email-address" loading={loading} tc={tc} s={s} />
+            <Field label="Phone *" value={phone} onChangeText={setPhone} icon="call-outline" placeholder="+1 (555) 123-4567" keyboard="phone-pad" loading={loading} tc={tc} s={s} />
+            <Field label="Location" value={location} onChangeText={setLocation} icon="location-outline" placeholder="San Francisco, CA" loading={loading} tc={tc} s={s} />
+            <Field label="Password *" value={password} onChangeText={setPassword} icon="lock-closed-outline" placeholder="••••••••" secure loading={loading} tc={tc} s={s} />
+            <Field label="Confirm Password *" value={confirmPassword} onChangeText={setConfirmPassword} icon="lock-closed-outline" placeholder="••••••••" secure loading={loading} tc={tc} s={s} />
             <TouchableOpacity style={s.btn} onPress={handleRegister} disabled={loading}>
               {loading ? <ActivityIndicator color="#fff" /> : <><Text style={s.btnText}>Create Account</Text><Ionicons name="arrow-forward" size={18} color="#fff" /></>}
             </TouchableOpacity>

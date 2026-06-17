@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
+import { canViewFeature } from '../utils/permissionUtils';
 
 const ACTION_META = {
   'alert acknowledged': { color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
@@ -93,6 +94,21 @@ export default function AuditTrailPage({ user }) {
   const [userFilter, setUser] = useState('All Users');
   const [dateFilter, setDate] = useState('Last 7 Days');
   const [modal, setModal] = useState(null);
+
+  const canView = canViewFeature(user.permissions, user.role, 'Audit Trail');
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Audit Trail" subtitle="System-wide activity logs and security monitoring" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', color: '#64748b' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔒</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Access Denied</div>
+          <div style={{ fontSize: '0.95rem' }}>You don't have permission to view this feature</div>
+        </div>
+      </div>
+    );
+  }
 
   const filtered = AUDIT_LOGS.filter(l => {
     const matchSearch = !search || l.description.toLowerCase().includes(search.toLowerCase()) || l.id.toLowerCase().includes(search.toLowerCase());

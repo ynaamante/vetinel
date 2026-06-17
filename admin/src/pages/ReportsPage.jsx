@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
+import { canViewFeature } from '../utils/permissionUtils';
 import { canExportFeature, canInteractWithFeature } from '../utils/permissionUtils';
 
 /* ── DATA ── */
@@ -77,6 +78,7 @@ export function ReportsPage({ user }) {
   const [format,     setFormat]     = useState('PDF');
   const [generating, setGenerating] = useState(null);
 
+  const canView = canViewFeature(user.permissions, user.role, 'Reports');
   const canGenerateReport = canInteractWithFeature(user.permissions, user.role, 'Reports');
   const canBuildCustomReport = canInteractWithFeature(user.permissions, user.role, 'Reports');
   const canManageReportActions = canInteractWithFeature(user.permissions, user.role, 'Reports');
@@ -85,6 +87,19 @@ export function ReportsPage({ user }) {
     if (!canGenerateReport) return;
     setGenerating(title);
     setTimeout(() => setGenerating(null), 1800);
+  }
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Reports" subtitle="Generate and manage custom reports" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', color: '#64748b' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔒</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Access Denied</div>
+          <div style={{ fontSize: '0.95rem' }}>You don't have permission to view this feature</div>
+        </div>
+      </div>
+    );
   }
 
   const previewText = `${reportType} report for ${disease} across network - ${timeRange} (${format})`;

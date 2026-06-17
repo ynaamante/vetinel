@@ -17,15 +17,37 @@ export default function LoginScreen({ navigation }: any) {
   const s = styles(tc, isDark);
 
   const handleLogin = async () => {
-    if (!email || !password) { Toast.show({ type: 'error', text1: 'Please enter email and password' }); return; }
+    if (!email || !password) {
+      Toast.show({
+        type: 'error',
+        text1: 'Please enter email and password',
+      });
+      return;
+    }
     setLoading(true);
-    setTimeout(async () => { await login(email); Toast.show({ type: 'success', text1: 'Welcome back!' }); setLoading(false); }, 1000);
+    try {
+      await login(email, password);
+      Toast.show({ type: 'success', text1: 'Welcome back!' });
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Login failed',
+        text2: err.message || 'Please check your credentials',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
+        <ScrollView 
+          contentContainerStyle={s.container} 
+          keyboardShouldPersistTaps="always"
+          scrollEnabled={false}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={s.brand}>
             <View style={s.logo}><Ionicons name="heart" size={36} color="#fff" /></View>
             <Text style={s.appName}>PetWatch</Text>
@@ -37,12 +59,29 @@ export default function LoginScreen({ navigation }: any) {
             <Text style={s.label}>Email</Text>
             <View style={s.inputRow}>
               <Ionicons name="mail-outline" size={18} color={tc.textMuted} style={s.icon} />
-              <TextInput style={s.input} placeholder="your@email.com" placeholderTextColor={tc.textMuted} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+              <TextInput 
+                style={s.input} 
+                placeholder="your@email.com" 
+                placeholderTextColor={tc.textMuted} 
+                value={email} 
+                onChangeText={setEmail} 
+                keyboardType="email-address" 
+                autoCapitalize="none"
+                editable={!loading}
+              />
             </View>
             <Text style={s.label}>Password</Text>
             <View style={s.inputRow}>
               <Ionicons name="lock-closed-outline" size={18} color={tc.textMuted} style={s.icon} />
-              <TextInput style={[s.input, { flex: 1 }]} placeholder="••••••••" placeholderTextColor={tc.textMuted} value={password} onChangeText={setPassword} secureTextEntry={!showPwd} />
+              <TextInput 
+                style={[s.input, { flex: 1 }]} 
+                placeholder="••••••••" 
+                placeholderTextColor={tc.textMuted} 
+                value={password} 
+                onChangeText={setPassword} 
+                secureTextEntry={!showPwd}
+                editable={!loading}
+              />
               <TouchableOpacity onPress={() => setShowPwd(!showPwd)} style={{ paddingHorizontal: 8 }}>
                 <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={18} color={tc.textMuted} />
               </TouchableOpacity>
@@ -66,7 +105,7 @@ export default function LoginScreen({ navigation }: any) {
 }
 
 const styles = (tc: any, isDark: boolean) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: isDark ? colors.dark.background : '#EFF6FF' },
+  safe: { flex: 1, backgroundColor: isDark ? colors.deepSpace : '#EFF6FF' },
   container: { flexGrow: 1, padding: spacing.md, justifyContent: 'center', paddingVertical: 40 },
   brand: { alignItems: 'center', marginBottom: 32 },
   logo: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },

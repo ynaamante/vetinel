@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   Info,
 } from 'lucide-react';
+import { isSystemAdmin } from '../../utils/permissionUtils';
 
 type Notification = {
   id: number;
@@ -54,7 +55,36 @@ export function DashboardLayout() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread'>('all');
+  const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('vetintel_token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    fetch(`${API_URL}/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Unauthorized');
+        return res.json();
+      })
+      .then(data => {
+        if (!isSystemAdmin(data.role)) {
+          throw new Error('Unauthorized');
+        }
+        setUser(data);
+      })
+      .catch(() => {
+        localStorage.removeItem('vetintel_token');
+        localStorage.removeItem('vetintel_user');
+        navigate('/login');
+      });
+  }, [navigate]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -84,9 +114,26 @@ export function DashboardLayout() {
     : notifications;
 
   const handleLogout = () => {
-    localStorage.removeItem('vetintel_user');
+    localStorage.clear();
+    sessionStorage.clear();
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then(regs => regs.forEach(r => r.unregister()))
+        .catch(() => {});
+    }
     navigate('/login');
   };
+
+  if (!user) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  const initials = (user.name || 'SA')
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -295,11 +342,11 @@ export function DashboardLayout() {
 
             <div className="relative pl-4 border-l border-gray-200 hidden md:flex items-center gap-3">
               <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
-                <span className="text-sm text-white">SA</span>
+                <span className="text-sm text-white">{initials}</span>
               </div>
               <div className="text-left">
-                <div className="text-sm font-medium text-gray-900">Super Admin</div>
-                <div className="text-xs text-gray-500">admin@vetintel.com</div>
+                <div className="text-sm font-medium text-gray-900">{user.name || 'User'}</div>
+                <div className="text-xs text-gray-500">{user.email}</div>
               </div>
             </div>
           </div>

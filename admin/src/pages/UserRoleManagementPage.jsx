@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
+import { canViewFeature } from '../utils/permissionUtils';
 
 const INITIAL_USERS = [
   { id: 'USR-001', name: 'Dr. Sarah Chen', email: 'owner@happypaws.com', role: 'owner', status: 'Active', created: '2025-01-15', lastLogin: '2026-04-27 09:15:03' },
@@ -97,6 +98,21 @@ export default function UserRoleManagementPage({ user }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState({ id: '', name: '', email: '', role: 'doctor', status: 'Active' });
+
+  const canView = canViewFeature(user.permissions, user.role, 'User & Role Management');
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="User & Role Management" subtitle="Manage clinic staff and their roles" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', color: '#64748b' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔒</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Access Denied</div>
+          <div style={{ fontSize: '0.95rem' }}>You don't have permission to view this feature</div>
+        </div>
+      </div>
+    );
+  }
 
   const counts = {
     active: users.filter(u => u.status === 'Active').length,

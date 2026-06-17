@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
+import { canViewFeature } from '../utils/permissionUtils';
 
 const APPT_TREND = [
   { month: 'January', appointments: 242 },
@@ -64,6 +65,22 @@ const RevenueTooltip = ({ active, payload, label }) => {
 };
 
 export default function ClinicOverviewPage({ user }) {
+  const canView = canViewFeature(user.permissions, user.role, 'Clinic Overview');
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Clinic Overview" subtitle="Comprehensive clinic performance and activity dashboard" />
+        <div style={s.page}>
+          <div style={s.accessDenied}>
+            <div style={s.accessDeniedTitle}>Access Denied</div>
+            <div style={s.accessDeniedMessage}>You do not have permission to view Clinic Overview.</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={s.main}>
       <Topbar user={user} title="Clinic Overview" subtitle="Comprehensive clinic performance and activity dashboard" />
@@ -217,6 +234,9 @@ const s = {
   main: { flex: 1, overflowY: 'auto', background: '#f4f6f9' },
   page: { padding: '24px 28px' },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 16 },
+  accessDenied: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '56vh', padding: '40px', background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb' },
+  accessDeniedTitle: { fontSize: '1.5rem', fontWeight: 700, color: '#111827', marginBottom: 10 },
+  accessDeniedMessage: { fontSize: '1rem', color: '#6b7280' },
   statCard: { background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: '20px 22px' },
   statIcon: { width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   statLabel: { fontSize: '.75rem', color: '#64748b', marginBottom: 4 },

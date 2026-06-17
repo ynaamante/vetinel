@@ -5,9 +5,14 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useOnboarding } from '../context/OnboardingContext';
 import { colors } from '../theme/colors';
 import { mockAlerts } from '../data/mockData';
 
+import SplashScreen from '../screens/SplashScreen';
+import WelcomeScreen from '../screens/WelcomeScreen';
+import WalkthroughScreen from '../screens/WalkthroughScreen';
+import TooltipGuideScreen from '../screens/TooltipGuideScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ClinicSelectionScreen from '../screens/ClinicSelectionScreen';
@@ -56,16 +61,28 @@ function TabNav() {
 
 export default function AppNavigator() {
   const { isLoggedIn } = useAuth();
+  const { hasSeenOnboarding } = useOnboarding();
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isLoggedIn ? (
+        {!hasSeenOnboarding ? (
+          // Onboarding flow
+          <>
+            <Stack.Screen name="Splash" component={SplashScreen} />
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="Walkthrough" component={WalkthroughScreen} />
+            <Stack.Screen name="TooltipGuide" component={TooltipGuideScreen} />
+          </>
+        ) : !isLoggedIn ? (
+          // Auth flow
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="ClinicSelection" component={ClinicSelectionScreen} />
           </>
         ) : (
+          // App flow
           <>
             <Stack.Screen name="Main" component={TabNav} />
             <Stack.Screen name="PetDetails" component={PetDetailsScreen} />

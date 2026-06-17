@@ -296,24 +296,42 @@ exports.login = async (req, res, next) => {
     const isValid = user.password_hash && await bcrypt.compare(password, user.password_hash);
     if (!isValid) return res.status(401).json({ error: 'Invalid email or password' });
 
+    const resolvedRole = (user.role_name || user.role) || (process.env.SUPERADMIN_EMAIL && user.email === process.env.SUPERADMIN_EMAIL ? 'super_admin' : 'user');
     const token = auth.signUserToken({
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role_name || user.role,
+      role: resolvedRole,
       clinic_id: user.clinic_id,
       clinic_name: user.clinic_name,
       exp: Date.now() + 1000 * 60 * 60 * 24,
+      iat: Date.now(),
     });
 
     res.json({
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role_name || user.role,
+      role: resolvedRole,
       clinic_id: user.clinic_id,
       clinic_name: user.clinic_name,
       token,
+    });
+  } catch (e) {
+    next(e);
+  }
+};
+
+exports.me = async (req, res, next) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    res.json({
+      id: req.user.id,
+      name: req.user.name,
+      email: req.user.email,
+      role: req.user.role,
+      clinic_id: req.user.clinic_id,
+      clinic_name: req.user.clinic_name,
     });
   } catch (e) {
     next(e);

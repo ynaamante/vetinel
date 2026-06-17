@@ -32,11 +32,45 @@ app.use((req, res, next) => {
   next();
 });
 
+function stripDatabaseCommands(sql) {
+  return sql
+    .replace(/^[ \t]*Database:.*$/gim, '')
+    .replace(/^[ \t]*DROP\s+DATABASE[\s\S]*?;\s*/gim, '')
+    .replace(/^[ \t]*CREATE\s+DATABASE[\s\S]*?;\s*/gim, '')
+    .replace(/^[ \t]*\\(?:c|connect).*$/gim, '')
+    .replace(/^[ \t]*USE\s+[^;]+;?/gim, '')
+    .trim();
+}
+
 async function runMigrations() {
-  const schemaPath = path.join(__dirname, 'models', 'schema.sql');
-  const sql = await fs.readFile(schemaPath, 'utf8');
-  if (!sql.trim()) return;
-  await db.query(sql);
+  const schemaPath = path.join(__dirname, 'Vetinel.sql');
+  let sql;
+  try {
+    sql = await fs.readFile(schemaPath, 'utf8');
+  } catch (e) {
+    if (e.code === 'ENOENT') {
+      console.log('Root schema file not found; skipping startup schema execution.');
+      return;
+    }
+    throw e;
+  }
+  if (!sql.trim()) {
+    console.log('Root schema file is empty; skipping startup schema execution.');
+    return;
+  }
+
+  const sanitizedSql = stripDatabaseCommands(sql);
+  if (sanitizedSql.trim() !== sql.trim()) {
+    console.log('Stripped database bootstrap commands from startup schema; executing only schema statements against the connected database.');
+  }
+  if (!sanitizedSql.trim()) {
+    console.log('Root schema file contains only database bootstrap commands; skipping execution.');
+    return;
+  }
+
+  console.log(`Executing startup schema from ${schemaPath}`);
+  await db.query(sanitizedSql);
+  console.log('Startup schema execution completed successfully.');
 }
 
 async function runOptionalRoleNormalizer() {
@@ -213,13 +247,37 @@ async function seedSuperAdmin() {
     return;
   }
 
-  const existing = await db.query('SELECT id FROM users WHERE email = $1', [adminEmail]);
+  // Ensure the super_admin role exists before creating the account.
+  let roleId = null;
+  const roleResult = await db.query('SELECT id FROM roles WHERE lower(name) = lower($1) LIMIT 1', ['super_admin']);
+  if (roleResult.rows.length > 0) {
+    roleId = roleResult.rows[0].id;
+  } else {
+    const newRole = await db.query(
+      'INSERT INTO roles (name, permissions) VALUES ($1, $2) RETURNING id',
+      ['super_admin', JSON.stringify({ all: true })]
+    );
+    roleId = newRole.rows[0].id;
+    console.log('Created super_admin role with id', roleId);
+  }
+
+  const existing = await db.query('SELECT id, role_id, name FROM users WHERE email = $1', [adminEmail]);
   if (existing.rows.length === 0) {
-    await userModel.create({ name: adminName, email: adminEmail, password: adminPassword });
+    await userModel.create({ name: adminName, email: adminEmail, password: adminPassword, role_id: roleId });
     console.log(`Created superadmin account: ${adminEmail}`);
   } else {
+    const existingUser = existing.rows[0];
+    if (!existingUser.role_id) {
+      await db.query('UPDATE users SET role_id = $1 WHERE id = $2', [roleId, existingUser.id]);
+      console.log(`Assigned super_admin role to existing superadmin account: ${adminEmail}`);
+    }
+    if (existingUser.name !== adminName) {
+      await db.query('UPDATE users SET name = $1 WHERE id = $2', [adminName, existingUser.id]);
+      console.log(`Updated superadmin name for ${adminEmail} to ${adminName}`);
+    }
     console.log(`Superadmin account already exists: ${adminEmail}`);
   }
+  console.log('super_admin seeding succeeded');
 }
 
 app.use('/api', apiRoutes);

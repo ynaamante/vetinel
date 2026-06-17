@@ -95,6 +95,16 @@ export function ClinicManagement() {
     link.click();
     document.body.removeChild(link);
     
+    // Log export to audit trail
+    fetch('/api/clinics/export/log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': localStorage.getItem('userId') || '1',
+      },
+      body: JSON.stringify({ format: 'CSV' }),
+    }).catch((err) => console.error('Failed to log export:', err));
+    
     setToast('Report exported successfully');
     setTimeout(() => setToast(null), 3000);
   };
@@ -253,6 +263,17 @@ export function ClinicManagement() {
 
     const filename = `clinic-report-${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(filename);
+    
+    // Log export to audit trail
+    fetch('/api/clinics/export/log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': localStorage.getItem('userId') || '1',
+      },
+      body: JSON.stringify({ format: 'PDF' }),
+    }).catch((err) => console.error('Failed to log export:', err));
+    
     setToast('Report exported successfully');
     setTimeout(() => setToast(null), 3000);
   };

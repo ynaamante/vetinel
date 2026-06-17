@@ -1,22 +1,76 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { differenceInDays, parseISO } from 'date-fns';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { colors, spacing, radius } from '../theme/colors';
-import { mockPets, mockAlerts, mockVaccinations } from '../data/mockData';
+import { petsApi, appointmentsApi, alertsApi } from '../services/api';
 
 const DOG_IMG = 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200&q=80';
 const CAT_IMG = 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&q=80';
 
 export default function HomeScreen({ navigation }: any) {
   const { colors: tc, isDark } = useTheme();
+  const { token } = useAuth();
   const s = styles(tc, isDark);
-  const unread = mockAlerts.filter(a => !a.read).length;
-  const highAlerts = mockAlerts.filter(a => a.severity === 'high' && !a.read);
-  const upcomingVacs = mockVaccinations.filter(v => { const d = differenceInDays(parseISO(v.nextDue), new Date()); return d >= 0 && d <= 30; });
-  const upcomingDeworm = mockPets.filter(p => { if (!p.nextDewormingDate) return false; const d = differenceInDays(parseISO(p.nextDewormingDate), new Date()); return d >= 0 && d <= 30; });
+  
+  const [pets, setPets] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (token) {
+      loadData();
+    }
+  }, [token]);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Fetch all data in parallel
+      const [petsData, alertsData, appointmentsData] = await Promise.all([
+        petsApi.list(token!).catch(err => {
+          console.error('Error fetching pets:', err);
+          return [];
+        }),
+        alertsApi.list(token!).catch(err => {
+          console.error('Error fetching alerts:', err);
+          return [];
+        }),
+        appointmentsApi.list(token!).catch(err => {
+          console.error('Error fetching appointments:', err);
+          return [];
+        }),
+      ]);
+
+      setPets(Array.isArray(petsData) ? petsData : []);
+      setAlerts(Array.isArray(alertsData) ? alertsData : []);
+      setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load data');
+      console.error('Error loading home data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const unread = alerts.filter(a => !a.read).length;
+  const highAlerts = alerts.filter(a => a.severity === 'high' && !a.read);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={s.safe}>
@@ -31,7 +85,7 @@ export default function HomeScreen({ navigation }: any) {
 
         {highAlerts.length > 0 && (
           <TouchableOpacity style={s.alertBanner} onPress={() => navigation.navigate('Alerts')}>
-            <Ionicons name="alert-circle" size={20} color={colors.danger} />
+            <Ionicons name="alert-circle" size={20} color="#DC2626" />
             <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={s.alertTitle}>{highAlerts[0].title}</Text>
               <Text style={s.alertMsg} numberOfLines={2}>{highAlerts[0].message}</Text>
@@ -39,14 +93,17 @@ export default function HomeScreen({ navigation }: any) {
           </TouchableOpacity>
         )}
 
-        {(upcomingVacs.length > 0 || upcomingDeworm.length > 0) && (
+        {appointments.length > 0 && (
           <View style={s.reminderCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <Ionicons name="medical" size={18} color="#C2410C" />
-              <Text style={s.reminderTitle}>Upcoming Reminders</Text>
+              <Ionicons name="calendar" size={18} color="#C2410C" />
+              <Text style={s.reminderTitle}>Upcoming Appointments</Text>
             </View>
-            {upcomingVacs.slice(0, 2).map(v => <Text key={v.id} style={s.reminderItem}>• Vaccination: {mockPets.find(p => p.id === v.petId)?.name} — {v.vaccine}</Text>)}
-            {upcomingDeworm.slice(0, 2).map(p => <Text key={p.id} style={s.reminderItem}>• Deworming due for {p.name}</Text>)}
+            {appointments.slice(0, 2).map((apt: any) => (
+              <Text key={apt.id} style={s.reminderItem}>
+                • {apt.date ? new Date(apt.date).toLocaleDateString() : 'Scheduled'} with {apt.clinicName || 'Clinic'}
+              </Text>
+            ))}
           </View>
         )}
 
@@ -79,24 +136,35 @@ export default function HomeScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {mockPets.map(pet => (
-          <TouchableOpacity key={pet.id} style={s.petCard} onPress={() => navigation.navigate('PetDetails', { petId: pet.id })} activeOpacity={0.8}>
-            <Image source={{ uri: pet.species === 'dog' ? DOG_IMG : CAT_IMG }} style={s.petImg} />
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={s.petName}>{pet.name}</Text>
-              <Text style={s.petInfo}>{pet.breed} • {pet.age} yrs</Text>
-              <View style={s.speciesBadge}><Text style={s.speciesText}>{pet.species}</Text></View>
-            </View>
-            <View style={s.petActions}>
-              <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('ReportSymptoms', { petId: pet.id })}>
-                <Ionicons name="alert-circle-outline" size={14} color={tc.textSecondary} /><Text style={s.actionBtnText}>Report</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('HealthReport', { petId: pet.id })}>
-                <Ionicons name="document-text-outline" size={14} color={tc.textSecondary} /><Text style={s.actionBtnText}>Health</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {pets.length === 0 ? (
+          <View style={s.emptyState}>
+            <Ionicons name="paw" size={48} color={tc.textMuted} />
+            <Text style={s.emptyText}>No pets yet</Text>
+            <Text style={s.emptySubtext}>Add your first pet to get started</Text>
+            <TouchableOpacity style={s.emptyButton} onPress={() => navigation.navigate('AddPet')}>
+              <Text style={s.emptyButtonText}>Add Pet</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          pets.map((pet: any) => (
+            <TouchableOpacity key={pet.id} style={s.petCard} onPress={() => navigation.navigate('PetDetails', { petId: pet.id })} activeOpacity={0.8}>
+              <Image source={{ uri: pet.species === 'dog' ? DOG_IMG : CAT_IMG }} style={s.petImg} />
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={s.petName}>{pet.name}</Text>
+                <Text style={s.petInfo}>{pet.breed || 'Mixed'} • {pet.age || '0'} yrs</Text>
+                <View style={s.speciesBadge}><Text style={s.speciesText}>{pet.species || 'Pet'}</Text></View>
+              </View>
+              <View style={s.petActions}>
+                <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('ReportSymptoms', { petId: pet.id })}>
+                  <Ionicons name="alert-circle-outline" size={14} color={tc.textSecondary} /><Text style={s.actionBtnText}>Report</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('HealthReport', { petId: pet.id })}>
+                  <Ionicons name="document-text-outline" size={14} color={tc.textSecondary} /><Text style={s.actionBtnText}>Health</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -140,4 +208,9 @@ const styles = (tc: any, isDark: boolean) => StyleSheet.create({
   petActions: { gap: 6 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: tc.border, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 5 },
   actionBtnText: { fontSize: 12, color: tc.textSecondary },
+  emptyState: { alignItems: 'center', paddingVertical: 40, backgroundColor: tc.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: tc.border, paddingHorizontal: 20 },
+  emptyText: { fontSize: 18, fontWeight: '600', color: tc.text, marginTop: 12 },
+  emptySubtext: { fontSize: 14, color: tc.textSecondary, marginTop: 4, textAlign: 'center' },
+  emptyButton: { marginTop: 16, backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: radius.md },
+  emptyButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 });

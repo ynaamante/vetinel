@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
+import { canViewFeature } from '../utils/permissionUtils';
 
 /* ── DATA ── */
 const VACC_TREND = [
@@ -94,6 +95,21 @@ const ChartTooltip = ({ active, payload, label, suffix = '' }) => {
 /* ── MAIN PAGE ── */
 export function CommunityAnalyticsPage({ user }) {
   const [openMonth, setOpenMonth] = useState('February');
+
+  const canView = canViewFeature(user.permissions, user.role, 'Community Analytics');
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Community Analytics" subtitle="Population-level health trends and insights" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', color: '#64748b' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔒</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Access Denied</div>
+          <div style={{ fontSize: '0.95rem' }}>You don't have permission to view this feature</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={s.main}>

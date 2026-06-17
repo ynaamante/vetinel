@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Topbar from '../../components/Topbar';
 import { Icons } from '../../icons';
+import { canViewFeature } from '../../utils/permissionUtils';
 
 // ── DATA ──────────────────────────────────────────────────────────────
 const APPOINTMENTS = [
@@ -252,9 +253,9 @@ function DashboardTab() {
 }
 
 // ── OWNERS TAB ─────────────────────────────────────────────────────────
-function OwnersTab() {
+function OwnersTab({ owners }) {
   const [search, setSearch] = useState('');
-  const filtered = OWNERS.filter(o => o.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = (owners || []).filter(o => o.name.toLowerCase().includes(search.toLowerCase()));
   return (
     <div style={T.wrap}>
       <div style={T.hd}>
@@ -319,9 +320,9 @@ function OwnersTab() {
 }
 
 // ── PETS TAB ───────────────────────────────────────────────────────────
-function PetsTab() {
+function PetsTab({ pets }) {
   const [search, setSearch] = useState('');
-  const filtered = PETS.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = (pets || []).filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
   return (
     <div style={T.wrap}>
       <div style={T.hd}>
@@ -384,11 +385,11 @@ function PetsTab() {
 }
 
 // ── APPOINTMENTS TAB ───────────────────────────────────────────────────
-function AppointmentsTab() {
+function AppointmentsTab({ appointments }) {
   const [search, setSearch] = useState('');
-  const filtered = APPOINTMENTS.filter(a =>
-    a.pet.toLowerCase().includes(search.toLowerCase()) ||
-    a.owner.toLowerCase().includes(search.toLowerCase())
+  const filtered = (appointments || []).filter(a =>
+    String(a.pet || '').toLowerCase().includes(search.toLowerCase()) ||
+    String(a.owner || '').toLowerCase().includes(search.toLowerCase())
   );
   return (
     <div style={T.wrap}>
@@ -534,15 +535,85 @@ function TreatmentsTab() {
 export default function ClinicLayout({ user }) {
   const [tab, setTab]           = useState('dashboard');
   const [showBanner, setShowBanner] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [pets, setPets] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [vaccinations, setVaccinations] = useState([]);
+  const [treatments, setTreatments] = useState([]);
+
+  const canView = canViewFeature(user.permissions, user.role, 'Local Clinic Records');
+
+  useEffect(() => {
+    if (!user || !user.token) return;
+    if (!canView) return;
+
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    const params = new URLSearchParams();
+    if (user.clinic_id) params.set('clinic_id', user.clinic_id);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const headers = { Authorization: `Bearer ${user.token}` };
+
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [clientsRes, petsRes, apptsRes, vaccRes, treatsRes] = await Promise.all([
+          fetch(`${apiUrl}/clinic-records/clients${query}`, { headers }),
+          fetch(`${apiUrl}/clinic-records/pets${query}`, { headers }),
+          fetch(`${apiUrl}/clinic-records/appointments${query}`, { headers }),
+          fetch(`${apiUrl}/clinic-records/vaccinations${query}`, { headers }),
+          fetch(`${apiUrl}/clinic-records/treatments${query}`, { headers }),
+        ]);
+
+        if (!clientsRes.ok || !petsRes.ok || !apptsRes.ok || !vaccRes.ok || !treatsRes.ok) {
+          throw new Error('Failed to load clinic records');
+        }
+
+        const [clientsData, petsData, apptsData, vaccData, treatsData] = await Promise.all([
+          clientsRes.json(),
+          petsRes.json(),
+          apptsRes.json(),
+          vaccRes.json(),
+          treatsRes.json(),
+        ]);
+
+        setClients(clientsData || []);
+        setPets(petsData || []);
+        setAppointments(apptsData || []);
+        setVaccinations(vaccData || []);
+        setTreatments(treatsData || []);
+      } catch (err) {
+        console.error(err);
+        setError('Unable to load clinic records.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user, canView]);
 
   const tabContent = {
-    dashboard:    <DashboardTab />,
-    owners:       <OwnersTab />,
-    pets:         <PetsTab />,
-    appointments: <AppointmentsTab />,
-    vaccinations: <VaccinationsTab />,
-    treatments:   <TreatmentsTab />,
+    dashboard:    <DashboardTab clients={clients} pets={pets} appointments={appointments} vaccinations={vaccinations} />,
+    owners:       <OwnersTab owners={clients} />,
+    pets:         <PetsTab pets={pets} />,
+    appointments: <AppointmentsTab appointments={appointments} />,
+    vaccinations: <VaccinationsTab vaccinations={vaccinations} />,
+    treatments:   <TreatmentsTab treatments={treatments} />,
   };
+
+  if (!canView) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f4f6f9' }}>
+        <div style={{ maxWidth: 520, width: '100%', padding: 32, background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', textAlign: 'center' }}>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>Access denied</h2>
+          <p style={{ marginTop: 12, color: '#64748b' }}>You do not have permission to view Local Clinic Records.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', background: '#f4f6f9' }}>
@@ -550,7 +621,17 @@ export default function ClinicLayout({ user }) {
       <div style={{ padding: '20px 28px' }}>
         {showBanner && <PrivacyBanner onClose={() => setShowBanner(false)} />}
         <TabNav active={tab} setTab={setTab} />
-        {tabContent[tab]}
+        {loading && (
+          <div style={{ padding: 24, background: '#fff', borderRadius: 14, border: '1px solid #e8ecf0', color: '#64748b' }}>
+            Loading clinic records...
+          </div>
+        )}
+        {error && (
+          <div style={{ padding: 24, background: '#fee2e2', borderRadius: 14, border: '1px solid #fecaca', color: '#b91c1c' }}>
+            {error}
+          </div>
+        )}
+        {!loading && !error && tabContent[tab]}
       </div>
     </div>
   );

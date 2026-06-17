@@ -1,9 +1,9 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
-const email = process.argv[2] || 'superadmin2@vetintel.com';
-const password = process.argv[3] || 'SuperAdmin123!';
-const name = process.argv[4] || 'Super Admin 2';
+const email = process.argv[2] || process.env.SUPERADMIN_EMAIL || 'superadmin2@vetintel.com';
+const password = process.argv[3] || process.env.SUPERADMIN_PASSWORD || 'SuperAdmin123!';
+const name = process.argv[4] || process.env.SUPERADMIN_NAME || 'Super Admin 2';
 
 (async () => {
   try {
@@ -13,12 +13,23 @@ const name = process.argv[4] || 'Super Admin 2';
       process.exit(0);
     }
 
+    // Find or create the super_admin role
+    let roleId = null;
+    const roleRes = await db.query('SELECT id FROM roles WHERE lower(name) = lower($1) LIMIT 1', ['super_admin']);
+    if (roleRes.rows.length > 0) {
+      roleId = roleRes.rows[0].id;
+    } else {
+      const createdRole = await db.query('INSERT INTO roles (name) VALUES ($1) RETURNING id', ['super_admin']);
+      roleId = createdRole.rows[0].id;
+      console.log('Created role super_admin with id', roleId);
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const result = await db.query(
-      `INSERT INTO users (name, email, password_hash, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, true, now(), now())
+      `INSERT INTO users (name, email, password_hash, is_active, created_at, updated_at, role_id)
+       VALUES ($1, $2, $3, true, now(), now(), $4)
        RETURNING id, name, email, is_active`,
-      [name, email, passwordHash]
+      [name, email, passwordHash, roleId]
     );
 
     console.log('Created super-admin user:');

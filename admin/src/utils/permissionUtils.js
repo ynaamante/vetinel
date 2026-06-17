@@ -9,6 +9,22 @@ const getFeaturePermissions = (permissions, feature) => {
   return featurePermissions && typeof featurePermissions === 'object' ? featurePermissions : null;
 };
 
+const defaultRoleFeatureAccess = (normalizedRole, feature) => {
+  if (feature === 'Clinic Overview' || feature === 'Local Clinic Records') {
+    return normalizedRole === 'clinic_owner' || normalizedRole === 'doctor' || normalizedRole === 'super_admin';
+  }
+  if (['User & Role Management', 'Financial Monitoring', 'Audit Trail'].includes(feature)) {
+    return normalizedRole === 'clinic_owner' || normalizedRole === 'super_admin';
+  }
+  if (['Appointment Management', 'Patient Queue', 'Billing & Payments', 'Client Management', 'Due Dates & Reminders'].includes(feature)) {
+    return normalizedRole === 'receptionist' || normalizedRole === 'super_admin';
+  }
+  if (['Intelligence Dashboard', 'Disease Monitoring', 'Risk Monitoring', 'Community Analytics', 'Reports', 'Data Sync Status'].includes(feature)) {
+    return normalizedRole === 'clinic_owner' || normalizedRole === 'doctor' || normalizedRole === 'receptionist' || normalizedRole === 'super_admin';
+  }
+  return false;
+};
+
 export const hasPermissionForFeature = (permissions, role, feature) => {
   const featurePermissions = getFeaturePermissions(permissions, feature);
   if (featurePermissions) {
@@ -18,22 +34,7 @@ export const hasPermissionForFeature = (permissions, role, feature) => {
   const normalizedRole = normalizeRoleName(role);
   if (normalizedRole === 'super_admin') return true;
 
-  if (!permissions || Object.keys(permissions).length === 0) {
-    if (feature === 'Clinic Overview') {
-      return normalizedRole === 'clinic_owner' || normalizedRole === 'doctor' || normalizedRole === 'super_admin';
-    }
-    if (['User & Role Management', 'Financial Monitoring', 'Audit Trail'].includes(feature)) {
-      return normalizedRole === 'clinic_owner' || normalizedRole === 'super_admin';
-    }
-    if (['Appointment Management', 'Patient Queue', 'Billing & Payments', 'Client Management', 'Due Dates & Reminders'].includes(feature)) {
-      return normalizedRole === 'receptionist' || normalizedRole === 'super_admin';
-    }
-    if (['Intelligence Dashboard', 'Disease Monitoring', 'Risk Monitoring', 'Community Analytics', 'Reports', 'Data Sync Status'].includes(feature)) {
-      return normalizedRole === 'clinic_owner' || normalizedRole === 'doctor' || normalizedRole === 'receptionist' || normalizedRole === 'super_admin';
-    }
-  }
-
-  return false;
+  return defaultRoleFeatureAccess(normalizedRole, feature);
 };
 
 export const canViewFeature = (permissions, role, feature) => {
@@ -41,13 +42,38 @@ export const canViewFeature = (permissions, role, feature) => {
   if (featurePermissions) {
     return !!featurePermissions.view;
   }
-  return false;
+  // Fallback to role defaults when explicit permissions are not present
+  return hasPermissionForFeature(permissions, role, feature);
 };
 
 export const canExportFeature = (permissions, role, feature) => {
   const featurePermissions = getFeaturePermissions(permissions, feature);
   if (featurePermissions) {
     return !!featurePermissions.export;
+  }
+  return false;
+};
+
+export const canCreateFeature = (permissions, role, feature) => {
+  const featurePermissions = getFeaturePermissions(permissions, feature);
+  if (featurePermissions) {
+    return !!featurePermissions.create;
+  }
+  return false;
+};
+
+export const canEditFeature = (permissions, role, feature) => {
+  const featurePermissions = getFeaturePermissions(permissions, feature);
+  if (featurePermissions) {
+    return !!featurePermissions.edit;
+  }
+  return false;
+};
+
+export const canDeleteFeature = (permissions, role, feature) => {
+  const featurePermissions = getFeaturePermissions(permissions, feature);
+  if (featurePermissions) {
+    return !!featurePermissions.delete;
   }
   return false;
 };

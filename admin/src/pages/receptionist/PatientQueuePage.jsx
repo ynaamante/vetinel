@@ -1,44 +1,106 @@
+import { useEffect, useMemo, useState } from 'react';
 import Topbar from '../../components/Topbar';
 import { Icons } from '../../icons';
+import { canViewFeature } from '../../utils/permissionUtils';
 
-const QUEUE = [
-  { num: 1, time: '09:00 AM', pet: 'Max',    owner: 'John Smith',    type: 'Checkup',    doctor: 'Dr. Torres', wait: '0 min',      status: 'in-consultation' },
-  { num: 2, time: '10:30 AM', pet: 'Luna',   owner: 'Sarah Johnson', type: 'Vaccination', doctor: 'Dr. Torres', wait: '15 min',     status: 'waiting'         },
-  { num: 3, time: '11:00 AM', pet: 'Charlie',owner: 'Mike Davis',    type: 'Surgery',    doctor: 'Dr. Chen',   wait: '45 min',     status: 'waiting'         },
-  { num: 4, time: '02:00 PM', pet: 'Bella',  owner: 'Emma Wilson',   type: 'Dental',     doctor: 'Dr. Torres', wait: '2 hr 15 min',status: 'waiting'         },
-];
+function formatTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
 
 function QueueBadge({ status }) {
   const map = {
     'in-consultation': { bg: '#eff6ff', color: '#1d4ed8' },
-    waiting:           { bg: '#fef9c3', color: '#ca8a04' },
+    waiting: { bg: '#fef9c3', color: '#ca8a04' },
   };
   const c = map[status] || { bg: '#f1f5f9', color: '#64748b' };
   return (
     <span style={{ padding: '3px 10px', borderRadius: 20, background: c.bg, color: c.color, fontSize: '.7rem', fontWeight: 600 }}>
-      {status}
+      {status || 'Unknown'}
     </span>
   );
 }
 
 export default function PatientQueuePage({ user }) {
+  const [queue, setQueue] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const canView = canViewFeature(user.permissions, user.role, 'Patient Queue');
+
+  useEffect(() => {
+    if (!user || !user.token) return;
+    if (!canView) return;
+
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    const params = new URLSearchParams();
+    if (user.clinic_id) params.set('clinic_id', user.clinic_id);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const headers = { Authorization: `Bearer ${user.token}` };
+
+    const loadQueue = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`${apiUrl}/clinic-records/patient-queue${query}`, { headers });
+        if (!response.ok) throw new Error('Failed to load patient queue');
+        const data = await response.json();
+        setQueue(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error(err);
+        setError('Unable to load patient queue from the database.');
+        setQueue([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadQueue();
+  }, [user, canView]);
+
+  const total = queue.length;
+  const waitingCount = queue.filter((item) => String(item.status || '').toLowerCase() === 'waiting').length;
+  const inConsultationCount = queue.filter((item) => String(item.status || '').toLowerCase() === 'in-consultation').length;
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Patient Queue" subtitle="Monitor currently scheduled patients" />
+        <div style={s.page}>
+          <div style={s.pageHd}>
+            <div>
+              <div style={s.pageTitle}>Patient Queue</div>
+              <div style={s.pageSub}>You do not have permission to view this page.</div>
+            </div>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: 28, color: '#475569' }}>
+            <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>Access denied</h2>
+            <p style={{ marginTop: 12 }}>Your role (<strong>{user.role}</strong>) does not currently have permission to view Patient Queue.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={s.main}>
       <Topbar user={user} title="Patient Queue" subtitle="Monitor currently scheduled patients" />
       <div style={s.page}>
-
         <div style={s.pageHd}>
-          <div style={s.pageTitle}>Patient Queue</div>
-          <div style={s.pageSub}>Monitor currently scheduled patients and wait times</div>
+          <div>
+            <div style={s.pageTitle}>Patient Queue</div>
+            <div style={s.pageSub}>Monitor scheduled patients, wait times, and practitioner status</div>
+          </div>
         </div>
 
-        {/* Stats */}
         <div style={s.statsGrid}>
           {[
-            { label: 'Total in Queue',   value: '4', icon: Icons.users,    iconBg: '#eff6ff', iconColor: '#1d4ed8' },
-            { label: 'Waiting',          value: '3', icon: Icons.clock,    iconBg: '#fffbeb', iconColor: '#d97706' },
-            { label: 'In Consultation',  value: '1', icon: Icons.check,    iconBg: '#f0fdf4', iconColor: '#16a34a' },
-          ].map(c => (
+            { label: 'Total in Queue', value: total, icon: Icons.users, iconBg: '#eff6ff', iconColor: '#1d4ed8' },
+            { label: 'Waiting', value: waitingCount, icon: Icons.clock, iconBg: '#fffbeb', iconColor: '#d97706' },
+            { label: 'In Consultation', value: inConsultationCount, icon: Icons.check, iconBg: '#f0fdf4', iconColor: '#16a34a' },
+          ].map((c) => (
             <div key={c.label} style={s.statCard}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -53,60 +115,43 @@ export default function PatientQueuePage({ user }) {
           ))}
         </div>
 
-        {/* Queue Table */}
         <div style={s.card}>
           <div style={s.tableTitle}>Current Queue</div>
-          <table style={s.table}>
-            <thead>
-              <tr>{['Queue #','Scheduled Time','Pet Name','Owner','Type','Doctor','Wait Time','Status','Actions'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
-            </thead>
-            <tbody>
-              {QUEUE.map((q, i) => (
-                <tr key={i}>
-                  <td style={{ ...s.td, fontWeight: 700, color: '#0f1117' }}>#{q.num}</td>
-                  <td style={s.td}>{q.time}</td>
-                  <td style={{ ...s.td, fontWeight: 600 }}>{q.pet}</td>
-                  <td style={s.td}>{q.owner}</td>
-                  <td style={s.td}>{q.type}</td>
-                  <td style={s.td}>{q.doctor}</td>
-                  <td style={s.td}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#64748b' }}>
-                      <span style={{ width: 13, height: 13, display: 'flex' }}>{Icons.clock}</span>
-                      {q.wait}
-                    </div>
-                  </td>
-                  <td style={s.td}><QueueBadge status={q.status} /></td>
-                  <td style={s.td}>
-                    {q.status === 'in-consultation'
-                      ? <button style={s.completeBtn}><span style={{ width: 13, height: 13, display: 'flex' }}>{Icons.check}</span> Complete</button>
-                      : <button style={s.startBtn}><span style={{ width: 13, height: 13, display: 'flex' }}>{Icons.arrowRight}</span> Start</button>
-                    }
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {loading ? (
+            <div style={{ padding: 40, color: '#64748b' }}>Loading queue…</div>
+          ) : error ? (
+            <div style={{ padding: 40, color: '#dc2626' }}>{error}</div>
+          ) : (
+            <table style={s.table}>
+              <thead>
+                <tr>{['#', 'Check-in', 'Appointment', 'Pet Name', 'Owner', 'Practitioner', 'Status', 'Actions'].map((h) => <th key={h} style={s.th}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {queue.length === 0 ? (
+                  <tr><td colSpan={8} style={{ ...s.td, color: '#64748b' }}>The patient queue is currently empty.</td></tr>
+                ) : (
+                  queue.map((item, index) => (
+                    <tr key={item.id ?? index}>
+                      <td style={{ ...s.td, fontWeight: 700, color: '#0f1117' }}>#{item.position ?? index + 1}</td>
+                      <td style={s.tdMuted}>{formatTime(item.checkin_at)}</td>
+                      <td style={s.td}>{formatTime(item.appointment_start)}</td>
+                      <td style={{ ...s.td, fontWeight: 600 }}>{item.pet || 'N/A'}</td>
+                      <td style={s.td}>{item.owner || 'N/A'}</td>
+                      <td style={s.td}>{item.practitioner || 'N/A'}</td>
+                      <td style={s.td}><QueueBadge status={item.status} /></td>
+                      <td style={s.td}>
+                        <button style={item.status === 'in-consultation' ? s.completeBtn : s.startBtn} disabled>
+                          <span style={{ width: 13, height: 13, display: 'flex' }}>{item.status === 'in-consultation' ? Icons.check : Icons.arrowRight}</span>
+                          {item.status === 'in-consultation' ? 'Complete' : 'Start'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
-
-        {/* Queue Statistics */}
-        <div style={{ ...s.card, marginTop: 16 }}>
-          <div style={s.tableTitle}>Queue Statistics</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24, paddingTop: 8 }}>
-            <div>
-              <div style={{ fontSize: '.75rem', color: '#94a3b8', marginBottom: 6 }}>Average Wait Time</div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: '1.8rem', fontWeight: 700, color: '#0f1117' }}>32 min</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '.75rem', color: '#94a3b8', marginBottom: 6 }}>Longest Wait</div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: '1.8rem', fontWeight: 700, color: '#d97706' }}>2 hr 15 min</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '.75rem', color: '#94a3b8', marginBottom: 6 }}>Patients Seen Today</div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: '1.8rem', fontWeight: 700, color: '#16a34a' }}>8</div>
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>
   );

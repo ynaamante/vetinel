@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
+import { canViewFeature } from '../utils/permissionUtils';
 
 /* ── DATA ── */
 const DISEASE_OPTIONS  = ['All Diseases', 'Parvovirus', 'Kennel Cough', 'Distemper', 'Giardia'];
@@ -115,6 +116,21 @@ export function RiskMonitoringPage({ user }) {
   const [disease,   setDisease]   = useState('All Diseases');
   const [clinic,    setClinic]    = useState('All Clinics');
   const [timeRange, setTimeRange] = useState('Last 30 Days');
+
+  const canView = canViewFeature(user.permissions, user.role, 'Risk Monitoring');
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Risk Monitoring" subtitle="Track and analyze risk levels across the network" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', color: '#64748b' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔒</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Access Denied</div>
+          <div style={{ fontSize: '0.95rem' }}>You don't have permission to view this feature</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={s.main}>

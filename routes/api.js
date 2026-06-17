@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const users = require('../controllers/userController');
 const clinics = require('../controllers/clinicController');
+const clinicRecords = require('../controllers/clinicRecordController');
 const audit = require('../controllers/auditController');
 const announcements = require('../controllers/announcementController');
 const dashboard = require('../controllers/dashboardController');
@@ -12,6 +13,7 @@ const auth = require('../middleware/auth');
 
 // Auth endpoints
 router.post('/login', users.login);
+router.get('/me', auth.required, users.me);
 
 // User endpoints
 router.get('/users', auth.optional, users.list);
@@ -28,6 +30,18 @@ router.get('/clinics/:id/staff', auth.optional, clinics.getStaffByClinic);
 router.post('/clinics', auth.required, clinics.create);
 router.put('/clinics/:id', auth.required, clinics.update);
 router.delete('/clinics/:id', auth.required, auth.superAdmin, clinics.delete);
+router.post('/clinics/export/log', auth.required, clinics.logExport);
+
+// Clinic records endpoints
+router.get('/clinic-records/clients', auth.required, clinicRecords.listClients);
+router.get('/clinic-records/pets', auth.required, clinicRecords.listPets);
+router.get('/clinic-records/appointments', auth.required, clinicRecords.listAppointments);
+router.get('/clinic-records/patient-queue', auth.required, clinicRecords.listPatientQueue);
+router.get('/clinic-records/invoices', auth.required, clinicRecords.listInvoices);
+router.get('/clinic-records/payments', auth.required, clinicRecords.listPayments);
+router.get('/clinic-records/reminders', auth.required, clinicRecords.listReminders);
+router.get('/clinic-records/vaccinations', auth.required, clinicRecords.listVaccinations);
+router.get('/clinic-records/treatments', auth.required, clinicRecords.listPrescriptions);
 
 // Audit Trail endpoints
 router.get('/audit-trail', auth.optional, audit.list);

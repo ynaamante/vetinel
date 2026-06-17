@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
+import { canViewFeature } from '../utils/permissionUtils';
 
 const TREND_DATA = [
   { month: 'Sep', revenue: 20200, expenses: 12400, profit: 7800 },
@@ -65,6 +66,21 @@ const ServiceTooltip = ({ active, payload, label }) => {
 
 export default function FinancialMonitoringPage({ user }) {
   const [period, setPeriod] = useState('Monthly');
+
+  const canView = canViewFeature(user.permissions, user.role, 'Financial Monitoring');
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Financial Monitoring" subtitle="Track income, expenses, and revenue analytics" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', color: '#64748b' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔒</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Access Denied</div>
+          <div style={{ fontSize: '0.95rem' }}>You don't have permission to view this feature</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={s.main}>

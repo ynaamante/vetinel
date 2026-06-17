@@ -43,7 +43,7 @@ const DEDICATED = [
 const PAGE_FEATURE_MAP = {
   dashboard: 'Intelligence Dashboard',
   disease: 'Disease Monitoring',
-  clinic: 'Clinic Overview',
+  clinic: 'Local Clinic Records',
   'appointments-ops': 'Appointment Management',
   'patient-queue': 'Patient Queue',
   billing: 'Billing & Payments',
@@ -90,8 +90,9 @@ const canAccessPage = (pageKey, permissions, role) => {
 
 const loadRolePermissions = async (roleName) => {
   if (!roleName) return null;
+  const apiUrl = import.meta.env.VITE_API_URL || '';
   try {
-    const response = await fetch('/api/roles');
+    const response = await fetch(`${apiUrl}/roles`);
     if (!response.ok) return null;
     const roles = await response.json();
     const normalizedRole = normalizeRoleName(roleName);
@@ -111,40 +112,69 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState('dashboard');
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('vetintel_token');
-    const userData = localStorage.getItem('vetintel_user');
-    if (token && userData) {
-      try {
-        const parsed = JSON.parse(userData);
-        const cachedUser = { ...parsed, token };
-        setUser(cachedUser);
-        setPermissionsLoaded(false);
+    if (!token) {
+      setAuthChecked(true);
+      return;
+    }
 
-        if (parsed.role) {
-          loadRolePermissions(parsed.role).then((permissions) => {
-            if (permissions) {
-              const updated = { ...parsed, token, permissions };
-              setUser(updated);
-              localStorage.setItem('vetintel_user', JSON.stringify(updated));
-              setPage(getFirstAllowedPage(permissions, parsed.role));
-            }
-            setPermissionsLoaded(true);
-          }).catch(() => {
-            setPermissionsLoaded(true);
-          });
-        } else {
-          setPermissionsLoaded(true);
-        }
+    const storedUser = localStorage.getItem('vetintel_user');
+    let parsedUser = null;
+    if (storedUser) {
+      try {
+        parsedUser = JSON.parse(storedUser);
       } catch (e) {
         localStorage.removeItem('vetintel_user');
         localStorage.removeItem('vetintel_token');
-        setPermissionsLoaded(true);
+        setAuthChecked(true);
+        return;
       }
-    } else {
-      setPermissionsLoaded(true);
     }
+
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    fetch(`${apiUrl}/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Unauthorized');
+        return response.json();
+      })
+      .then((me) => {
+        const userWithToken = { ...me, token };
+        setUser(userWithToken);
+        setPermissionsLoaded(false);
+        if (me.role) {
+          loadRolePermissions(me.role).then((permissions) => {
+            if (permissions) {
+              const updated = { ...userWithToken, permissions };
+              setUser(updated);
+              localStorage.setItem('vetintel_user', JSON.stringify(updated));
+              setPage(getFirstAllowedPage(permissions, me.role));
+            }
+            setPermissionsLoaded(true);
+            setAuthChecked(true);
+          }).catch(() => {
+            setPermissionsLoaded(true);
+            setAuthChecked(true);
+          });
+        } else {
+          setPermissionsLoaded(true);
+          setAuthChecked(true);
+          localStorage.setItem('vetintel_user', JSON.stringify(me));
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem('vetintel_user');
+        localStorage.removeItem('vetintel_token');
+        setUser(null);
+        setPermissionsLoaded(true);
+        setAuthChecked(true);
+      });
   }, []);
 
   function handleLogin(userData) {
@@ -175,10 +205,31 @@ export default function App() {
   }
 
   function handleLogout() {
-    localStorage.removeItem('vetintel_token');
-    localStorage.removeItem('vetintel_user');
+    // Clear persisted auth and user state
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (e) {
+      // ignore
+    }
+
+    // Clear in-memory state
     setUser(null);
     setPage('dashboard');
+
+    // Unregister any service workers (if present) to avoid cached responses
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then(regs => regs.forEach(r => r.unregister()))
+        .catch(() => {});
+    }
+
+    // Force a full reload / navigation to root so no stale in-memory data remains
+    try {
+      window.location.replace(window.location.origin + window.location.pathname);
+    } catch (e) {
+      window.location.reload();
+    }
   }
 
   if (!user) {

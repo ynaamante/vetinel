@@ -9,13 +9,34 @@ import { Settings } from "./components/pages/Settings";
 import { ClinicDetails } from "./components/pages/ClinicDetails";
 import { Login } from "./components/pages/Login";
 import { SystemAnnouncements } from "./components/pages/SystemAnnouncements";
+import { isSystemAdmin } from "../utils/permissionUtils";
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const user = localStorage.getItem('vetintel_user');
-  if (!user) {
+  const userData = localStorage.getItem('vetintel_user');
+  const token = localStorage.getItem('vetintel_token');
+
+  if (!userData || !token) {
+    localStorage.removeItem('vetintel_user');
+    localStorage.removeItem('vetintel_token');
     return <Navigate to="/login" replace />;
   }
+
+  let user;
+  try {
+    user = JSON.parse(userData);
+  } catch (error) {
+    localStorage.removeItem('vetintel_user');
+    localStorage.removeItem('vetintel_token');
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isSystemAdmin(user?.role)) {
+    localStorage.removeItem('vetintel_user');
+    localStorage.removeItem('vetintel_token');
+    return <Navigate to="/login" replace />;
+  }
+
   return <>{children}</>;
 }
 

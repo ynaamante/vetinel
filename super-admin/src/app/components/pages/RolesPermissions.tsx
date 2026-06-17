@@ -78,7 +78,9 @@ export function RolesPermissions() {
       const response = await fetch('/api/roles');
       if (!response.ok) throw new Error('Failed to fetch roles');
       const data = await response.json();
-      const normalizedRoles = (data || []).map(normalizeRole);
+      const normalizedRoles = (data || [])
+        .map(normalizeRole)
+        .filter(role => role.name !== 'super_admin');
       setRoles(normalizedRoles);
       if (normalizedRoles.length > 0) setSelectedRole(normalizedRoles[0].id ?? null);
     } catch (error) {

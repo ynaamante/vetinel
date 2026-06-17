@@ -20,10 +20,16 @@ export function Login() {
 
     try {
       const response = await axios.post('/api/login', { email, password });
+      const userRole = response.data.role || 'super_admin';
+      if (userRole.trim().toLowerCase() !== 'super_admin') {
+        setError('You do not have System Administrator access.');
+        return;
+      }
+
       localStorage.setItem('vetintel_user', JSON.stringify({
         email: response.data.email,
         name: response.data.name,
-        role: 'super_admin',
+        role: userRole,
       }));
       if (response.data.token) {
         localStorage.setItem('vetintel_token', response.data.token);

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 
 const authSecret = process.env.AUTH_SECRET || process.env.API_TOKEN || 'dev_auth_secret';
+const serverStartedAt = Date.now();
 
 function base64UrlEncode(value) {
   return Buffer.from(value, 'utf8').toString('base64url');
@@ -11,7 +12,11 @@ function base64UrlDecode(value) {
 }
 
 function signPayload(payload) {
-  const json = JSON.stringify(payload);
+  const finalPayload = { ...payload };
+  if (!finalPayload.iat) {
+    finalPayload.iat = Date.now();
+  }
+  const json = JSON.stringify(finalPayload);
   const signature = crypto.createHmac('sha256', authSecret).update(json).digest('hex');
   return `${base64UrlEncode(json)}.${signature}`;
 }
@@ -40,6 +45,7 @@ function verifyToken(token) {
   }
 
   if (payload.exp && Date.now() > payload.exp) return null;
+  if (payload.iat && payload.iat < serverStartedAt) return null;
   return payload;
 }
 

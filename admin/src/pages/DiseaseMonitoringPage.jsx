@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
-import { canExportFeature, canInteractWithFeature } from '../utils/permissionUtils';
+import { canExportFeature, canInteractWithFeature, canViewFeature } from '../utils/permissionUtils';
 
 const DISEASE_OPTIONS = ['Parvovirus', 'Kennel Cough', 'Distemper', 'Giardia', 'Leptospirosis'];
 const TIME_OPTIONS    = ['Last 30 Days', 'Last 60 Days', 'Last 90 Days'];
@@ -192,8 +192,22 @@ export default function DiseaseMonitoringPage({ user }) {
   const [showVacc,  setShowVacc]  = useState(false);
   const [modal,     setModal]     = useState(null);
 
+  const canView = canViewFeature(user.permissions, user.role, 'Disease Monitoring');
   const canExportAlert = canExportFeature(user.permissions, user.role, 'Disease Monitoring');
   const canAlertClinics = canInteractWithFeature(user.permissions, user.role, 'Disease Monitoring');
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Disease Monitoring" subtitle="Monitor disease patterns and outbreak alerts" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', color: '#64748b' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔒</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Access Denied</div>
+          <div style={{ fontSize: '0.95rem' }}>You don't have permission to view this feature</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={s.main}>

@@ -772,6 +772,50 @@ CREATE INDEX idx_audit_logs_created ON audit_logs(created_at);
 ## Backend Setup
 
 ### Prerequisites
+- Node.js (v14 or higher)
+- npm or yarn
+- PostgreSQL (v12 or higher)
+
+### Backend Installation
+
+Navigate to the backend directory and install dependencies:
+
+```bash
+cd vetinel
+npm install
+```
+
+**Backend Dependencies:**
+- `express` (v4.18.2) - Web framework
+- `pg` (v8.10.0) - PostgreSQL client
+- `bcryptjs` (v2.4.3) - Password hashing
+- `dotenv` (v16.0.0) - Environment variable management
+
+### Environment Configuration
+
+Create a `.env` file in the `vetinel/` directory with the following variables:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=vetinel_db
+DB_USER=postgres
+DB_PASSWORD=your_password
+NODE_ENV=development
+JWT_SECRET=your_jwt_secret
+```
+
+### Running the Backend Server
+
+```bash
+npm start
+```
+
+The server will run on `http://localhost:3000` by default.
+
+## Backend Setup
+
+### Prerequisites
 
 - Node.js (v18+)
 - PostgreSQL (v12+)
@@ -1048,18 +1092,50 @@ VITE_APP_NAME=VetIntel Super Admin
 
 ### Prerequisites
 
-- Node.js (v16+)
-- npm or yarn
-- Git
+- Node.js (v16 or higher) - [Download](https://nodejs.org/)
+- npm (v8 or higher) - Included with Node.js
+- PostgreSQL (v12 or higher) - [Download](https://www.postgresql.org/download/)
+- Git - [Download](https://git-scm.com/)
 
-### Clone the repository
+### Quick Start
+
+#### 1. Clone the repository
 
 ```bash
 git clone https://github.com/ynaamante/vetinel
 cd vetinel
 ```
 
-### Admin Portal
+#### 2. Backend Setup (Node.js + PostgreSQL)
+
+Navigate to backend and install dependencies:
+
+```bash
+npm install
+```
+
+Create a `.env` file in the root directory:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=vetinel_db
+DB_USER=postgres
+DB_PASSWORD=your_password
+NODE_ENV=development
+JWT_SECRET=your_jwt_secret_key
+PORT=3000
+```
+
+Start the backend server:
+
+```bash
+npm start
+```
+
+The backend API will run on `http://localhost:3000`
+
+#### 3. Admin Portal (React + Vite)
 
 ```bash
 cd admin
@@ -1069,12 +1145,23 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-**Test Credentials**:
-- Email: `owner@happypaws.com` / Password: `owner123`
-- Email: `doctor@happypaws.com` / Password: `doctor123`
-- Email: `receptionist@happypaws.com` / Password: `receptionist123`
+**Admin Portal Test Credentials**:
+- Owner: `owner@happypaws.com` / `owner123`
+- Doctor: `doctor@happypaws.com` / `doctor123`
+- Receptionist: `receptionist@happypaws.com` / `receptionist123`
 
-### PetWatch Mobile App
+**Admin Portal Dependencies** (automatically installed):
+- React (18.3.1) - UI framework
+- Vite (v8.0.16) - Build tool
+- React Router (v6.30.4) - Navigation
+- Axios (v1.17.0) - HTTP requests
+- Recharts (2.10.3) - Charts and graphs
+- TailwindCSS (3.3.5) - Styling
+- Zustand (4.4.0) - State management
+- TypeScript (5.2.2) - Type safety
+- ESLint (8.52.0) - Code quality
+
+#### 4. PetWatch Mobile App (React Native + Expo)
 
 ```bash
 cd petwatch-rn
@@ -1082,14 +1169,28 @@ npm install
 npm start
 ```
 
-Run on simulator or device:
+Run on simulator or physical device:
+
 ```bash
+# Android
 npm run android
-# or
+
+# iOS (macOS only)
 npm run ios
 ```
 
-### Super Admin Portal
+**PetWatch Dependencies** (automatically installed):
+- Expo (v54.0.35) - React Native framework
+- React Native (0.81.5) - Mobile framework
+- React Navigation (v6.1.17) - Navigation library
+- React Native Reanimated (v4.1.1) - Animations
+- Expo Linear Gradient (v15.0.8) - Gradient support
+- React Native QR Code (v6.3.1) - QR code generation
+- AsyncStorage (2.2.0) - Local persistence
+- TypeScript (v5.9.2) - Type safety
+- Babel (v7.24.0) - JavaScript transpiler
+
+#### 5. Super Admin Portal (React + Vite + TypeScript)
 
 ```bash
 cd super-admin
@@ -1099,21 +1200,111 @@ npm run dev
 
 Open [http://localhost:5174](http://localhost:5174) in your browser.
 
-### Optional: Build for Production
+**Super Admin Portal Dependencies** (automatically installed):
+- React (18.3.1) - UI framework
+- Vite (v8.0.16) - Build tool
+- React Router (v6.30.4) - Navigation
+- React Hook Form (7.48.0) - Form management
+- Radix UI (v1.x) - 25+ accessible components
+- Recharts (2.10.3) - Charts
+- jsPDF (v2.5.2) - PDF generation
+- Lucide React (0.292.0) - Icons
+- Sonner (v1.2.2) - Toast notifications
+- TailwindCSS (3.3.5) - Styling
+- TypeScript (5.2.2) - Type safety
+
+### Backend Dependencies Summary
+
+The backend requires the following Node.js packages:
+
+```json
+{
+  "dependencies": {
+    "bcryptjs": "^2.4.3",      // Password hashing
+    "dotenv": "^16.0.0",        // Environment variables
+    "express": "^4.18.2",       // Web framework
+    "pg": "^8.10.0"             // PostgreSQL client
+  }
+}
+```
+
+To install backend dependencies:
 
 ```bash
-# Admin Portal
+npm install
+```
+
+### Production Build
+
+#### Build Admin Portal
+
+```bash
 cd admin
 npm run build
+```
 
-# PetWatch Mobile
+Output: `admin/dist/`
+
+#### Build PetWatch Mobile
+
+```bash
 cd petwatch-rn
 npm run build
 
-# Super Admin Portal
+# Or publish to app stores
+eas build --platform ios
+eas build --platform android
+```
+
+#### Build Super Admin Portal
+
+```bash
 cd super-admin
 npm run build
 ```
+
+Output: `super-admin/dist/`
+
+### Troubleshooting
+
+**Module not found errors:**
+```bash
+# Clear cache and reinstall
+rm -rf node_modules package-lock.json
+npm install
+```
+
+**Port already in use:**
+```bash
+# Backend on different port
+PORT=3001 npm start
+
+# Frontend on different port (check vite.config.js)
+```
+
+**Database connection issues:**
+```bash
+# Test PostgreSQL connection
+psql -h localhost -U postgres -d vetinel_db
+
+# Create database if not exists
+createdb -U postgres vetinel_db
+```
+
+**Dependency version conflicts:**
+```bash
+# Update npm
+npm install -g npm@latest
+
+# Use npm ci for production
+npm ci
+```
+
+For detailed setup instructions for each application, see:
+- [Backend Setup](#backend-setup)
+- [Admin Portal README](admin/README.md)
+- [PetWatch Mobile README](petwatch-rn/README.md)
+- [Super Admin Portal README](super-admin/README.md)
 
 ---
 

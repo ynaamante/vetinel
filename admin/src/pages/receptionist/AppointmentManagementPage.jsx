@@ -1,48 +1,146 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Topbar from '../../components/Topbar';
 import { Icons } from '../../icons';
+import { canViewFeature } from '../../utils/permissionUtils';
 
-const TODAY_APPTS = [
-  { time: '09:00 AM', pet: 'Max',    owner: 'John Smith',    type: 'Checkup',    status: 'confirmed' },
-  { time: '10:30 AM', pet: 'Luna',   owner: 'Sarah Johnson', type: 'Vaccination', status: 'confirmed' },
-  { time: '11:00 AM', pet: 'Charlie',owner: 'Mike Davis',    type: 'Surgery',    status: 'pending'   },
-  { time: '02:00 PM', pet: 'Bella',  owner: 'Emma Wilson',   type: 'Dental',     status: 'confirmed' },
-  { time: '03:30 PM', pet: 'Rocky',  owner: 'David Brown',   type: 'Checkup',    status: 'confirmed' },
-];
+function formatDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
-const UPCOMING_APPTS = [
-  { date: '2026-04-28', time: '09:00 AM', pet: 'Daisy',  owner: 'Lisa Taylor',   type: 'Follow-up',   status: 'confirmed' },
-  { date: '2026-04-28', time: '10:00 AM', pet: 'Cooper', owner: 'Tom Anderson',  type: 'Vaccination', status: 'pending'   },
-  { date: '2026-04-29', time: '02:30 PM', pet: 'Milo',   owner: 'Jessica Lee',   type: 'Checkup',     status: 'confirmed' },
-];
+function formatTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
 
-const CANCELLED_APPTS = [
-  { date: '2026-04-26', time: '01:00 PM', pet: 'Oscar', owner: 'Mark Wilson',  type: 'Checkup', notes: 'Owner called to cancel' },
-  { date: '2026-04-25', time: '03:00 PM', pet: 'Zoe',   owner: 'Rachel Green', type: 'Dental',  notes: 'Rescheduled'           },
-];
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function isFutureDay(a, b) {
+  if (a.getFullYear() !== b.getFullYear()) return a.getFullYear() > b.getFullYear();
+  if (a.getMonth() !== b.getMonth()) return a.getMonth() > b.getMonth();
+  return a.getDate() > b.getDate();
+}
 
 function StatusBadge({ status }) {
   const map = {
     confirmed: { bg: '#dcfce7', color: '#16a34a' },
-    pending:   { bg: '#fef9c3', color: '#ca8a04' },
+    pending: { bg: '#fef9c3', color: '#ca8a04' },
+    cancelled: { bg: '#fee2e2', color: '#b91c1c' },
   };
-  const c = map[status] || { bg: '#f1f5f9', color: '#64748b' };
+  const normalized = String(status || '').toLowerCase();
+  const c = map[normalized] || { bg: '#f1f5f9', color: '#64748b' };
   return (
     <span style={{ padding: '3px 10px', borderRadius: 20, background: c.bg, color: c.color, fontSize: '.7rem', fontWeight: 600 }}>
-      {status}
+      {String(status || 'Unknown')}
     </span>
   );
 }
 
 export default function AppointmentManagementPage({ user }) {
-  const [tab,    setTab]    = useState('today');
+  const [tab, setTab] = useState('today');
   const [search, setSearch] = useState('');
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const tabs = [
-    { id: 'today',    label: "Today's Appointments" },
-    { id: 'upcoming', label: 'Upcoming'             },
-    { id: 'cancelled',label: 'Cancelled'            },
+    { id: 'today', label: "Today's Appointments" },
+    { id: 'upcoming', label: 'Upcoming' },
+    { id: 'cancelled', label: 'Cancelled' },
   ];
+
+  const canView = canViewFeature(user.permissions, user.role, 'Appointment Management');
+
+  useEffect(() => {
+    if (!user || !user.token) return;
+    if (!canView) return;
+
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    const params = new URLSearchParams();
+    if (user.clinic_id) params.set('clinic_id', user.clinic_id);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const headers = { Authorization: `Bearer ${user.token}` };
+
+    const loadAppointments = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`${apiUrl}/clinic-records/appointments${query}`, { headers });
+        if (!response.ok) throw new Error('Failed to load appointments');
+        const data = await response.json();
+        setAppointments(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error(err);
+        setError('Unable to load appointments from the database.');
+        setAppointments([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAppointments();
+  }, [user, canView]);
+
+  const filteredAppointments = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return appointments;
+    return appointments.filter((appt) => {
+      return [appt.pet, appt.owner, appt.reason, appt.practitioner].some((value) =>
+        String(value || '').toLowerCase().includes(query)
+      );
+    });
+  }, [appointments, search]);
+
+  const todayAppointments = useMemo(() => {
+    const today = new Date();
+    return filteredAppointments.filter((appt) => {
+      const date = new Date(appt.start_time);
+      return !Number.isNaN(date.getTime()) && isSameDay(date, today) && String(appt.status || '').toLowerCase() !== 'cancelled';
+    });
+  }, [filteredAppointments]);
+
+  const upcomingAppointments = useMemo(() => {
+    const today = new Date();
+    return filteredAppointments.filter((appt) => {
+      const date = new Date(appt.start_time);
+      return !Number.isNaN(date.getTime()) && isFutureDay(date, today) && String(appt.status || '').toLowerCase() !== 'cancelled';
+    });
+  }, [filteredAppointments]);
+
+  const cancelledAppointments = useMemo(() => {
+    return filteredAppointments.filter((appt) => String(appt.status || '').toLowerCase() === 'cancelled');
+  }, [filteredAppointments]);
+
+  const stats = useMemo(() => ({
+    total: todayAppointments.length,
+    confirmed: appointments.filter((appt) => String(appt.status || '').toLowerCase() === 'confirmed').length,
+    pending: appointments.filter((appt) => String(appt.status || '').toLowerCase() === 'pending').length,
+    upcoming: upcomingAppointments.length,
+  }), [appointments, todayAppointments.length, upcomingAppointments.length]);
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Appointment Management" subtitle="Manage bookings, cancellations, and follow-ups" />
+        <div style={s.page}>
+          <div style={s.pageHd}>
+            <div>
+              <div style={s.pageTitle}>Appointment Management</div>
+              <div style={s.pageSub}>You do not have permission to view this page.</div>
+            </div>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: 28, color: '#475569' }}>
+            <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>Access denied</h2>
+            <p style={{ marginTop: 12 }}>Your role (<strong>{user.role}</strong>) does not currently have permission to view Appointment Management.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={s.main}>
@@ -55,7 +153,7 @@ export default function AppointmentManagementPage({ user }) {
             <div style={s.pageTitle}>Appointment Management</div>
             <div style={s.pageSub}>Manage today's bookings, upcoming appointments, and cancellations</div>
           </div>
-          <button style={s.primaryBtn}>
+          <button style={s.primaryBtn} disabled>
             <span style={{ width: 13, height: 13, display: 'flex' }}>{Icons.plus}</span>
             New Appointment
           </button>
@@ -64,11 +162,11 @@ export default function AppointmentManagementPage({ user }) {
         {/* Stat Cards */}
         <div style={s.statsGrid}>
           {[
-            { label: "Today's Total", value: '5', icon: Icons.calendar, iconBg: '#eff6ff', iconColor: '#1d4ed8' },
-            { label: 'Confirmed',     value: '4', icon: Icons.check,    iconBg: '#f0fdf4', iconColor: '#16a34a' },
-            { label: 'Pending',       value: '1', icon: Icons.clock,    iconBg: '#fffbeb', iconColor: '#d97706' },
-            { label: 'Upcoming',      value: '3', icon: Icons.calendarPlus, iconBg: '#f5f3ff', iconColor: '#7c3aed' },
-          ].map(c => (
+            { label: "Today's Total", value: stats.total, icon: Icons.calendar, iconBg: '#eff6ff', iconColor: '#1d4ed8' },
+            { label: 'Confirmed', value: stats.confirmed, icon: Icons.check, iconBg: '#f0fdf4', iconColor: '#16a34a' },
+            { label: 'Pending', value: stats.pending, icon: Icons.clock, iconBg: '#fffbeb', iconColor: '#d97706' },
+            { label: 'Upcoming', value: stats.upcoming, icon: Icons.calendarPlus, iconBg: '#f5f3ff', iconColor: '#7c3aed' },
+          ].map((c) => (
             <div key={c.label} style={s.statCard}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -86,12 +184,12 @@ export default function AppointmentManagementPage({ user }) {
         {/* Search */}
         <div style={s.searchWrap}>
           <span style={s.searchIcon}>{Icons.search}</span>
-          <input style={s.search} placeholder="Search by pet name or owner..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input style={s.search} placeholder="Search by pet, owner, practitioner, or type..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
         {/* Tab Bar */}
         <div style={s.tabBar}>
-          {tabs.map(t => (
+          {tabs.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{ ...s.tabBtn, ...(tab === t.id ? s.tabActive : {}) }}>
               {t.label}
             </button>
@@ -100,88 +198,108 @@ export default function AppointmentManagementPage({ user }) {
 
         {/* Tab Content */}
         <div style={s.card}>
-          {tab === 'today' && (
+          {loading ? (
+            <div style={{ padding: 40, color: '#64748b' }}>Loading appointments…</div>
+          ) : error ? (
+            <div style={{ padding: 40, color: '#dc2626' }}>{error}</div>
+          ) : (
             <>
-              <div style={s.tableTitle}>Today's Appointments ({TODAY_APPTS.length})</div>
-              <table style={s.table}>
-                <thead>
-                  <tr>{['Time','Pet Name','Owner','Type','Status','Actions'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {TODAY_APPTS.filter(a => a.pet.toLowerCase().includes(search.toLowerCase()) || a.owner.toLowerCase().includes(search.toLowerCase())).map((a, i) => (
-                    <tr key={i}>
-                      <td style={{ ...s.td, fontWeight: 600 }}>{a.time}</td>
-                      <td style={s.td}>{a.pet}</td>
-                      <td style={s.td}>{a.owner}</td>
-                      <td style={s.td}>{a.type}</td>
-                      <td style={s.td}><StatusBadge status={a.status} /></td>
-                      <td style={s.td}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <button style={s.actionBtn}>
-                            <span style={{ width: 13, height: 13, display: 'flex', color: '#16a34a' }}>{Icons.check}</span>
-                            {a.status === 'pending' ? 'Confirm' : 'Complete'}
-                          </button>
-                          <button style={{ ...s.iconBtn, color: '#dc2626' }}>
-                            <span style={{ width: 14, height: 14, display: 'flex' }}>{Icons.xCircle}</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
+              {tab === 'today' && (
+                <>
+                  <div style={s.tableTitle}>Today's Appointments ({todayAppointments.length})</div>
+                  <table style={s.table}>
+                    <thead>
+                      <tr>{['Time', 'Pet Name', 'Owner', 'Type', 'Status', 'Actions'].map((h) => <th key={h} style={s.th}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {todayAppointments.length === 0 ? (
+                        <tr><td colSpan={6} style={{ ...s.td, color: '#64748b' }}>No appointments scheduled for today.</td></tr>
+                      ) : (
+                        todayAppointments.map((appt, i) => (
+                          <tr key={appt.id || `${i}-${appt.start_time}`}> 
+                            <td style={{ ...s.td, fontWeight: 600 }}>{formatTime(appt.start_time)}</td>
+                            <td style={s.td}>{appt.pet}</td>
+                            <td style={s.td}>{appt.owner}</td>
+                            <td style={s.td}>{appt.reason || 'Appointment'}</td>
+                            <td style={s.td}><StatusBadge status={appt.status} /></td>
+                            <td style={s.td}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <button style={s.actionBtn} disabled>
+                                  <span style={{ width: 13, height: 13, display: 'flex', color: '#16a34a' }}>{Icons.check}</span>
+                                  {String(appt.status || '').toLowerCase() === 'pending' ? 'Confirm' : 'Complete'}
+                                </button>
+                                <button style={{ ...s.iconBtn, color: '#dc2626' }} disabled>
+                                  <span style={{ width: 14, height: 14, display: 'flex' }}>{Icons.xCircle}</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </>
+              )}
 
-          {tab === 'upcoming' && (
-            <>
-              <div style={s.tableTitle}>Upcoming Appointments ({UPCOMING_APPTS.length})</div>
-              <table style={s.table}>
-                <thead>
-                  <tr>{['Date','Time','Pet Name','Owner','Type','Status','Actions'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {UPCOMING_APPTS.map((a, i) => (
-                    <tr key={i}>
-                      <td style={s.tdMuted}>{a.date}</td>
-                      <td style={{ ...s.td, fontWeight: 600 }}>{a.time}</td>
-                      <td style={s.td}>{a.pet}</td>
-                      <td style={s.td}>{a.owner}</td>
-                      <td style={s.td}>{a.type}</td>
-                      <td style={s.td}><StatusBadge status={a.status} /></td>
-                      <td style={s.td}>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button style={s.iconBtn}><span style={{ width: 14, height: 14, display: 'flex', color: '#64748b' }}>{Icons.edit}</span></button>
-                          <button style={s.iconBtn}><span style={{ width: 14, height: 14, display: 'flex', color: '#dc2626' }}>{Icons.trash}</span></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
+              {tab === 'upcoming' && (
+                <>
+                  <div style={s.tableTitle}>Upcoming Appointments ({upcomingAppointments.length})</div>
+                  <table style={s.table}>
+                    <thead>
+                      <tr>{['Date', 'Time', 'Pet Name', 'Owner', 'Type', 'Status', 'Actions'].map((h) => <th key={h} style={s.th}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {upcomingAppointments.length === 0 ? (
+                        <tr><td colSpan={7} style={{ ...s.td, color: '#64748b' }}>No upcoming appointments found.</td></tr>
+                      ) : (
+                        upcomingAppointments.map((appt, i) => (
+                          <tr key={appt.id || `${i}-${appt.start_time}`}> 
+                            <td style={s.tdMuted}>{formatDate(appt.start_time)}</td>
+                            <td style={{ ...s.td, fontWeight: 600 }}>{formatTime(appt.start_time)}</td>
+                            <td style={s.td}>{appt.pet}</td>
+                            <td style={s.td}>{appt.owner}</td>
+                            <td style={s.td}>{appt.reason || 'Appointment'}</td>
+                            <td style={s.td}><StatusBadge status={appt.status} /></td>
+                            <td style={s.td}>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button style={s.iconBtn} disabled><span style={{ width: 14, height: 14, display: 'flex', color: '#64748b' }}>{Icons.edit}</span></button>
+                                <button style={s.iconBtn} disabled><span style={{ width: 14, height: 14, display: 'flex', color: '#dc2626' }}>{Icons.trash}</span></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </>
+              )}
 
-          {tab === 'cancelled' && (
-            <>
-              <div style={s.tableTitle}>Cancelled Appointments ({CANCELLED_APPTS.length})</div>
-              <table style={s.table}>
-                <thead>
-                  <tr>{['Date','Time','Pet Name','Owner','Type','Notes'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {CANCELLED_APPTS.map((a, i) => (
-                    <tr key={i}>
-                      <td style={s.tdMuted}>{a.date}</td>
-                      <td style={{ ...s.td, fontWeight: 600 }}>{a.time}</td>
-                      <td style={s.td}>{a.pet}</td>
-                      <td style={s.td}>{a.owner}</td>
-                      <td style={s.td}>{a.type}</td>
-                      <td style={s.tdMuted}>{a.notes}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {tab === 'cancelled' && (
+                <>
+                  <div style={s.tableTitle}>Cancelled Appointments ({cancelledAppointments.length})</div>
+                  <table style={s.table}>
+                    <thead>
+                      <tr>{['Date', 'Time', 'Pet Name', 'Owner', 'Type', 'Notes'].map((h) => <th key={h} style={s.th}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {cancelledAppointments.length === 0 ? (
+                        <tr><td colSpan={6} style={{ ...s.td, color: '#64748b' }}>No cancelled appointments.</td></tr>
+                      ) : (
+                        cancelledAppointments.map((appt, i) => (
+                          <tr key={appt.id || `${i}-${appt.start_time}`}> 
+                            <td style={s.tdMuted}>{formatDate(appt.start_time)}</td>
+                            <td style={{ ...s.td, fontWeight: 600 }}>{formatTime(appt.start_time)}</td>
+                            <td style={s.td}>{appt.pet}</td>
+                            <td style={s.td}>{appt.owner}</td>
+                            <td style={s.td}>{appt.reason || 'Appointment'}</td>
+                            <td style={s.tdMuted}>{appt.notes || 'Cancelled'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </>
+              )}
             </>
           )}
         </div>

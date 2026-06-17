@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Topbar from '../components/Topbar';
 import { Icons } from '../icons';
-import { canExportFeature, canInteractWithFeature } from '../utils/permissionUtils';
+import { canExportFeature, canInteractWithFeature, canViewFeature } from '../utils/permissionUtils';
 
 /* ── DATA ── */
 const SYNC_HISTORY = [
@@ -39,6 +39,7 @@ export function DataSyncPage({ user }) {
   const [manualSync, setManualSync] = useState(false);
   const [autoSync,   setAutoSync]   = useState(true);
 
+  const canView = canViewFeature(user.permissions, user.role, 'Data Sync Status');
   const canChangeSync = canInteractWithFeature(user.permissions, user.role, 'Data Sync Status');
   const canManualSync = canInteractWithFeature(user.permissions, user.role, 'Data Sync Status');
   const canChangeInterval = canInteractWithFeature(user.permissions, user.role, 'Data Sync Status');
@@ -47,6 +48,19 @@ export function DataSyncPage({ user }) {
     if (!canManualSync) return;
     setManualSync(true);
     setTimeout(() => setManualSync(false), 2000);
+  }
+
+  if (!canView) {
+    return (
+      <div style={s.main}>
+        <Topbar user={user} title="Data Sync Status" subtitle="Monitor synchronization and privacy settings" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', color: '#64748b' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔒</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Access Denied</div>
+          <div style={{ fontSize: '0.95rem' }}>You don't have permission to view this feature</div>
+        </div>
+      </div>
+    );
   }
 
   return (
