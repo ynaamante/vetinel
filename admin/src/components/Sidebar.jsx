@@ -1,27 +1,23 @@
 import { Icons } from '../icons';
 import { hasPermissionForFeature } from '../utils/permissionUtils';
 
-const DISEASE_NAV = [
+// All available features organized by section
+const ALL_NAV_ITEMS = [
+  // Disease Intelligence
   { id: 'dashboard', label: 'Intelligence Dashboard', icon: 'grid',     section: 'Disease Intelligence' },
   { id: 'disease',   label: 'Disease Monitoring',     icon: 'activity', dot: true },
   { id: 'risk',      label: 'Risk Monitoring',         icon: 'shield'   },
   { id: 'analytics', label: 'Community Analytics',    icon: 'users'    },
   { id: 'reports',   label: 'Reports',                icon: 'file'     },
   { id: 'sync',      label: 'Data Sync Status',       icon: 'refresh'  },
-];
-
-const ADMIN_NAV = [
-  { id: 'clinics',   label: 'Clinic Overview',         icon: 'building', section: 'Administrator' },
+  // Clinic Management
+  { id: 'clinics',   label: 'Clinic Overview',         icon: 'building', section: 'Clinic Management' },
   { id: 'users',     label: 'User & Role Management', icon: 'lock'     },
   { id: 'financial', label: 'Financial Monitoring',   icon: 'dollar'   },
   { id: 'audit',     label: 'Audit Trail',            icon: 'list'     },
-];
-
-const DOCTOR_NAV = [
-  { id: 'clinic', label: 'Local Clinic Records', icon: 'building', section: 'Clinic' },
-];
-
-const RECEPTIONIST_NAV = [
+  // Clinic Records
+  { id: 'clinic',    label: 'Local Clinic Records',   icon: 'building', section: 'Clinical Records' },
+  // Operations
   { id: 'appointments-ops', label: 'Appointment Management', icon: 'calendar',  section: 'Operations' },
   { id: 'patient-queue',    label: 'Patient Queue',          icon: 'users'                             },
   { id: 'billing',          label: 'Billing & Payments',     icon: 'dollar'                            },
@@ -32,8 +28,6 @@ const RECEPTIONIST_NAV = [
 export default function Sidebar({ active, setPage, user, onLogout }) {
   const rawRole = String(user.role || '').trim().toLowerCase();
   const roleName = rawRole.replace(/[-\s]+/g, '_');
-  const isOwner = roleName === 'clinic_owner' || roleName === 'super_admin';
-  const isReceptionist = roleName === 'receptionist';
 
   const permissions = user.permissions || {};
 
@@ -42,10 +36,8 @@ export default function Sidebar({ active, setPage, user, onLogout }) {
     return hasPermissionForFeature(permissions, user.role, feature);
   };
 
-  const NAV = [
-    ...DISEASE_NAV,
-    ...(isOwner ? ADMIN_NAV : isReceptionist ? RECEPTIONIST_NAV : DOCTOR_NAV),
-  ].filter((item) => canAccessPage(item.label));
+  // Filter navigation items ONLY by permissions, not by role title
+  const NAV = ALL_NAV_ITEMS.filter((item) => canAccessPage(item.label));
   return (
     <div style={s.sidebar}>
       <div style={s.brand}>VetIntel</div>

@@ -64,22 +64,19 @@ const normalizeRoleName = (role) =>
 
 
 const getFirstAllowedPage = (permissions, role) => {
+  // Try each page in order; return the first one the user has permission to access
+  const allPages = Object.keys(PAGE_FEATURE_MAP);
+  
   const normalizedRole = normalizeRoleName(role);
-  const priorityPages = normalizedRole === 'clinic_owner' || normalizedRole === 'super_admin'
-    ? ['clinics', 'users', 'financial', 'audit', 'dashboard']
-    : normalizedRole === 'receptionist'
-    ? ['appointments-ops', 'patient-queue', 'billing', 'client-mgmt', 'reminders', 'dashboard']
-    : normalizedRole === 'doctor'
-    ? ['clinic', 'dashboard']
-    : ['dashboard'];
-
-  for (const page of priorityPages) {
+  
+  for (const page of allPages) {
     const feature = PAGE_FEATURE_MAP[page];
     if (feature && hasPermissionForFeature(permissions, role, feature)) {
       return page;
     }
   }
 
+  // Fallback to dashboard
   return 'dashboard';
 };
 

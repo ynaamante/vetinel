@@ -9,32 +9,19 @@ const getFeaturePermissions = (permissions, feature) => {
   return featurePermissions && typeof featurePermissions === 'object' ? featurePermissions : null;
 };
 
-const defaultRoleFeatureAccess = (normalizedRole, feature) => {
-  if (feature === 'Clinic Overview' || feature === 'Local Clinic Records') {
-    return normalizedRole === 'clinic_owner' || normalizedRole === 'doctor' || normalizedRole === 'super_admin';
-  }
-  if (['User & Role Management', 'Financial Monitoring', 'Audit Trail'].includes(feature)) {
-    return normalizedRole === 'clinic_owner' || normalizedRole === 'super_admin';
-  }
-  if (['Appointment Management', 'Patient Queue', 'Billing & Payments', 'Client Management', 'Due Dates & Reminders'].includes(feature)) {
-    return normalizedRole === 'receptionist' || normalizedRole === 'super_admin';
-  }
-  if (['Intelligence Dashboard', 'Disease Monitoring', 'Risk Monitoring', 'Community Analytics', 'Reports', 'Data Sync Status'].includes(feature)) {
-    return normalizedRole === 'clinic_owner' || normalizedRole === 'doctor' || normalizedRole === 'receptionist' || normalizedRole === 'super_admin';
-  }
-  return false;
-};
-
 export const hasPermissionForFeature = (permissions, role, feature) => {
   const featurePermissions = getFeaturePermissions(permissions, feature);
   if (featurePermissions) {
     return Object.values(featurePermissions).some(Boolean);
   }
 
+  // For super_admin with no explicit permissions, grant access
   const normalizedRole = normalizeRoleName(role);
   if (normalizedRole === 'super_admin') return true;
 
-  return defaultRoleFeatureAccess(normalizedRole, feature);
+  // For all other roles, if explicit permissions are not defined, deny access
+  // This ensures permissions are ONLY based on what's explicitly set in the matrix
+  return false;
 };
 
 export const canViewFeature = (permissions, role, feature) => {
@@ -42,8 +29,13 @@ export const canViewFeature = (permissions, role, feature) => {
   if (featurePermissions) {
     return !!featurePermissions.view;
   }
-  // Fallback to role defaults when explicit permissions are not present
-  return hasPermissionForFeature(permissions, role, feature);
+  
+  // For super_admin with no explicit permissions, allow view
+  const normalizedRole = normalizeRoleName(role);
+  if (normalizedRole === 'super_admin') return true;
+  
+  // For all other roles, deny access if explicit permissions don't exist
+  return false;
 };
 
 export const canExportFeature = (permissions, role, feature) => {

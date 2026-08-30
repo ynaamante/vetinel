@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Cache & Reset Permissions</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 600px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+        .success { color: green; margin-top: 20px; }
+        .info { background: #f0f0f0; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>VetIntel - Cache & Permission Reset</h1>
+        
+        <div class="info">
+            <h3>What this does:</h3>
+            <ul>
+                <li>Clears cached user data and token from localStorage</li>
+                <li>Clears sessionStorage</li>
+                <li>Closes all open tabs/windows of VetIntel</li>
+                <li>Forces fresh login with updated permissions</li>
+            </ul>
+        </div>
+
+        <button onclick="clearCache()">Clear Cache & Reset</button>
+        <button onclick="location.reload()">Just Refresh Page</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function clearCache() {
+            try {
+                // Clear localStorage
+                localStorage.removeItem('vetintel_token');
+                localStorage.removeItem('vetintel_user');
+                localStorage.clear();
+                
+                // Clear sessionStorage
+                sessionStorage.clear();
+                
+                // Clear all cookies
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c
+                        .replace(/^ +/, "")
+                        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+                
+                document.getElementById('result').innerHTML = 
+                    '<div class="success">' +
+                    '<h3>✓ Cache Cleared!</h3>' +
+                    '<p>Local storage, session storage, and cookies have been cleared.</p>' +
+                    '<p>You will be logged out. Please wait 2 seconds...</p>' +
+                    '</div>';
+                
+                // Redirect to login after 2 seconds
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+                
+            } catch(e) {
+                document.getElementById('result').innerHTML = 
+                    '<div style="color: red;"><h3>Error: ' + e.message + '</h3></div>';
+            }
+        }
+    </script>
+</body>
+</html>
