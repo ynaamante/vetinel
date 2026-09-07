@@ -19,15 +19,26 @@ A comprehensive veterinary health monitoring and clinic management platform with
 
 ## System Overview
 
-The VETINEL system consists of three frontend applications that will connect to a single Node.js backend with PostgreSQL database:
+The VETINEL system consists of a public Landing Page and three role-based applications connected to a single Node.js backend with a PostgreSQL database. The Landing Page is the public entry point for authentication, clinic applications, and authenticated communication with Super Admin.
 
 | Application | Purpose | Tech Stack | Users |
 |-----------|---------|-----------|-------|
+| **Landing Page** | Public product entry point, sign in, registration, clinic applications, and authenticated VetIntel Admin messaging | HTML, CSS, JavaScript | Visitors, Pet Owners, Clinic Owners |
 | **Admin Portal** | Clinic staff dashboard for managing appointments, clients, disease monitoring, and financial data | Vite + React + Tailwind CSS | Clinic Owners, Doctors, Receptionists |
 | **PetWatch Mobile** | Pet owner app for managing pets, appointments, vaccinations, health records, and receiving alerts | Expo + React Native + TypeScript | Pet Owners |
 | **Super Admin Portal** | System administration for managing clinics, users, roles, permissions, and audit trails | Vite + React + TypeScript | System Administrators |
 
 ### Key Features
+
+#### Landing Page Features:
+- Product landing page and public navigation
+- Clinic Owner and Pet Owner sign in
+- Pet Owner and Clinic Owner registration
+- Clinic application submission for Super Admin review
+- Authenticated VetIntel Admin messenger
+- Message templates for account, appointment, clinic application, and app error help
+- Signed-in user notification, initials avatar, and Sign Out
+- Displays Super Admin replies in the conversation thread
 
 #### Admin Portal Features:
 - Dashboard with real-time disease monitoring and outbreak alerts
@@ -63,22 +74,26 @@ The VETINEL system consists of three frontend applications that will connect to 
 
 ## Architecture & Data Flow
 
+The Landing Page is the public entry layer. Visitors can browse the product, sign in, create an account, submit a clinic application, and—after authentication—message VetIntel Super Admin. The Admin Portal, PetWatch Mobile app, and Super Admin Portal consume the same backend API and database.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         FRONTEND LAYER                           │
-├────────────────────┬──────────────────┬──────────────────────────┤
-│  Admin Portal      │  PetWatch Mobile │  Super Admin Portal      │
-│  (Vite + React)    │  (Expo + RN)     │  (Vite + React)          │
-│                    │                  │                          │
-│ - Dashboard        │ - Home Screen    │ - Dashboard              │
-│ - Appointments     │ - Alerts         │ - Clinic Mgmt            │
-│ - Clients          │ - Appointments   │ - User Mgmt              │
-│ - Disease Monitor  │ - Profile        │ - Roles & Permissions    │
-│ - Billing          │ - Pet Details    │ - Audit Trail            │
-│ - Analytics        │ - Add Pet        │ - Settings               │
-│ - Reports          │ - Health Tips    │                          │
-└────────────────────┴──────────────────┴──────────────────────────┘
-                              ↓ HTTP REST API
+├─────────────────────────────────────────────────────────────────┤
+│ Landing Page (HTML/CSS/JavaScript)                              │
+│ - Public product entry, Sign In, Registration                  │
+│ - Clinic applications and authenticated Admin messenger         │
+├─────────────────────────────────────────────────────────────────┤
+│ Admin Portal (Vite + React)                                     │
+│ - Clinic operations, appointments, clients, billing, reports    │
+├─────────────────────────────────────────────────────────────────┤
+│ PetWatch Mobile (Expo + React Native + TypeScript)              │
+│ - Pets, health records, vaccinations, appointments, alerts       │
+├─────────────────────────────────────────────────────────────────┤
+│ Super Admin Portal (Vite + React + TypeScript)                  │
+│ - Clinics, approvals, users, RBAC, Inbox, audit, settings        │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓ HTTP REST API + JWT
 ┌─────────────────────────────────────────────────────────────────┐
 │                    BACKEND LAYER (Node.js)                       │
 ├─────────────────────────────────────────────────────────────────┤
@@ -103,6 +118,24 @@ The VETINEL system consists of three frontend applications that will connect to 
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Landing Page Clinic Application Flow
+
+1. A clinic owner submits an application from the Landing Page through `POST /api/clinic-applications`.
+2. The backend validates and stores the application as a pending clinic record.
+3. Super Admin reviews the application in Clinic Applications.
+4. Super Admin approves it through `PUT /api/clinics/:id` with `status: active`.
+5. The backend creates the clinic owner account, hashes the temporary password, and sets `must_change_password = true`.
+6. Configured SMTP sends the credentials to the owner.
+7. The clinic owner signs in through the Landing Page and changes the temporary password.
+
+### Landing Page Authenticated Messaging Flow
+
+1. A signed-in Pet Owner or Clinic Owner selects a message template.
+2. The backend validates the bearer token and stores the message in `messages`.
+3. Super Admin receives the message in the Inbox with sender, audience, subject, body, and date.
+4. Super Admin replies through `POST /api/messages/:id/replies`.
+5. The Landing Page loads the reply through `GET /api/my-messages` and displays it in the conversation.
+
 ### Data Flow Example: Pet Owner Booking Appointment
 
 1. **PetWatch App**: User selects a clinic and available slot
@@ -115,7 +148,32 @@ The VETINEL system consists of three frontend applications that will connect to 
 
 ## Frontend Applications
 
-### 1. Admin Portal (`/admin`)
+### 1. Landing Page (`/LandingPage`)
+
+**Purpose**: Public entry point for VetIntel users and clinic applicants.
+
+**Main capabilities**:
+- Public product information and navigation
+- Sign in for Clinic Owners and Pet Owners
+- Registration for Clinic Owners and Pet Owners
+- Clinic application submission
+- Authenticated VetIntel Admin messenger
+- Message templates and reply history
+- Signed-in user notification, profile initials, and Sign Out
+
+**Primary file**:
+- `LandingPage/Index.html`
+
+**Backend integrations**:
+- `POST /api/login`
+- `POST /api/register`
+- `POST /api/clinic-applications`
+- `GET /api/my-messages`
+- `POST /api/messages`
+
+---
+
+### 2. Admin Portal (`/admin`)
 
 **Purpose**: Clinic staff management dashboard
 
@@ -151,7 +209,7 @@ The VETINEL system consists of three frontend applications that will connect to 
 
 ---
 
-### 2. PetWatch Mobile App (`/petwatch-rn`)
+### 3. PetWatch Mobile App (`/petwatch-rn`)
 
 **Purpose**: Pet owner mobile application for health management
 
@@ -256,7 +314,7 @@ interface Clinic {
 
 ---
 
-### 3. Super Admin Portal (`/super-admin`)
+### 4. Super Admin Portal (`/super-admin`)
 
 **Purpose**: System-wide administration and oversight
 
@@ -1384,3 +1442,239 @@ For detailed setup instructions for each application, see:
 - Follow role-based access control (RBAC) for authorization.
 - If dependency installation fails, retry from the app folder so the lockfile stays local to that project.
 #      
+
+---
+
+## Change Log: Added and Changed Features
+
+### Landing page changes
+
+- Changed the landing-page navigation from **Contact** to **Sign In**.
+- Added Clinic Owner and Pet Owner sign-in selection.
+- Added Pet Owner and Clinic Owner registration.
+- Added authenticated session handling, user display, initials avatar, notification, and Sign Out.
+- Added the VetIntel Admin floating chat launcher after login.
+- Added the compact right-side messenger layout.
+- Added reusable message templates inside the messenger.
+- Restricted messaging to signed-in users.
+- Added message thread loading and Super Admin reply display.
+- Added clinic application submission from the landing page.
+
+### Authentication and backend changes
+
+- Added `POST /api/register`.
+- Added `POST /api/login`, `GET /api/me`, and `POST /api/password/change` integration.
+- Added password hashing with `bcryptjs`.
+- Added authenticated message creation through `POST /api/messages`.
+- Added `GET /api/my-messages` for the signed-in user's conversations.
+- Added Super Admin message details, read status, and reply endpoints.
+- Added reply email notification support.
+- Added Pet Owner and Clinic Owner audience values to messages.
+
+### Clinic application and approval changes
+
+- Added clinic application storage through `POST /api/clinic-applications`.
+- Added Super Admin application review and status management.
+- Replaced the basic approval confirmation with a three-step approval wizard:
+  - Review
+  - Create Account
+  - Credentials Sent
+- Added clinic owner account creation during approval.
+- Added generated temporary passwords and password regeneration.
+- Added email preview for clinic owner credentials.
+- Added `must_change_password` for newly approved clinic owners.
+- Added credential delivery status and warning display.
+
+### Super Admin changes
+
+- Updated Clinic Applications to show owner and application details.
+- Added approve, reject, edit, suspend, reactivate, and archive actions.
+- Updated Inbox to show sender, email, subject, audience, body, date, and reply controls.
+- Updated Inbox replies to call the backend reply API.
+- Updated message audience mapping so Pet Owner and Veterinary Clinic messages display correctly.
+- Replaced the hardcoded Inbox message timestamp with the actual message date.
+- Updated the approval backend to accept the temporary password generated by the wizard.
+
+### Development configuration changes
+
+Added development credentials to `.env`:
+
+```env
+DEMO_PET_OWNER_EMAIL=petowner@vetintel.com
+DEMO_PET_OWNER_PASSWORD=pet123
+DEMO_CLINIC_OWNER_EMAIL=clinicowner@vetintel.com
+DEMO_CLINIC_OWNER_PASSWORD=owner123
+SUPERADMIN_EMAIL=admin@vetintel.com
+SUPERADMIN_PASSWORD=admin123
+SUPERADMIN_NAME=VetIntel Admin
+```
+
+These credentials are for local development only and must be replaced before deployment.
+
+### Files changed for these features
+
+- `LandingPage/Index.html`
+- `routes/api.js`
+- `controllers/userController.js`
+- `controllers/clinicController.js`
+- `controllers/adminSurfaceController.js`
+- `super-admin/src/app/components/pages/ClinicManagement.tsx`
+- `super-admin/src/app/components/pages/ReferenceScreens.tsx`
+- `.env`
+- `README.md`
+
+---
+
+## Current Implementation Status and Handoff
+
+This section records the implementation completed during the landing-page, authentication, messaging, and Super Admin approval work. Treat it as the current source of truth for the next implementation pass.
+
+### End-to-end flow
+
+```text
+Landing Page -> Sign In/Create Account -> Pet Owner or Clinic Owner
+-> Authenticated Messenger -> Super Admin Inbox
+-> Clinic Application Review -> Approve Application
+-> Create Clinic Owner Account -> Send Credentials -> Clinic Owner Sign In
+```
+
+### Completed
+
+#### Landing page (`LandingPage/Index.html`)
+
+- Replaced the public Contact navigation flow with Sign In.
+- Added Sign In tabs for Clinic Owner and Pet Owner.
+- Added Create Account for Pet Owner and Clinic Owner.
+- Connected registration to `POST /api/register`.
+- Connected login to `POST /api/login` and stores the returned session token.
+- Shows the signed-in user's name/initials and Sign Out.
+- Shows a post-login notification and a floating VetIntel Admin chat launcher.
+- Added the right-side messenger widget matching the supplied reference layout.
+- Added Account Help, Appointment Help, Clinic Application Help, and Report an App Error templates.
+- Sends sender name, sender email, audience, subject, and body to the backend.
+- Loads the user's messages and replies from `GET /api/my-messages`.
+- Submits clinic applications to `POST /api/clinic-applications`.
+
+#### Backend
+
+- Added registration, login, current-user, and password-change flows.
+- Hashes passwords with `bcryptjs`.
+- Requires authentication to create messages.
+- Added sender message listing, Super Admin message listing, message details, read status, and replies.
+- Stores messages in `messages` and replies in `message_replies`.
+- Preserves Pet Owner versus Clinic Owner audience.
+- Sends an email notification when Super Admin replies, when email service is configured.
+- Clinic approval creates a clinic owner with `must_change_password = true`.
+- Approval accepts the wizard-generated temporary password and returns credential status.
+
+#### Super Admin portal
+
+- Clinic Applications loads data from the backend.
+- Supports review, approve, reject, edit, suspend, reactivate, and archive actions.
+- Approval now uses a three-step wizard: Review, Create Account, Credentials Sent.
+- Wizard includes owner details, application email, temporary password generation/regeneration, and email preview.
+- Final approval screen shows clinic, owner, email, temporary password, and email delivery status.
+- Inbox displays sender, email, subject, audience, body, actual message date, and reply controls.
+- Super Admin replies use `POST /api/messages/:id/replies`.
+
+#### Development accounts
+
+```env
+DEMO_PET_OWNER_EMAIL=petowner@vetintel.com
+DEMO_PET_OWNER_PASSWORD=pet123
+DEMO_CLINIC_OWNER_EMAIL=clinicowner@vetintel.com
+DEMO_CLINIC_OWNER_PASSWORD=owner123
+
+SUPERADMIN_EMAIL=admin@vetintel.com
+SUPERADMIN_PASSWORD=admin123
+SUPERADMIN_NAME=VetIntel Admin
+```
+
+These are development-only credentials and must be replaced before deployment.
+
+### Incomplete and needs verification
+
+#### Authentication and security
+
+- Confirm that the database has a real `pet_owner` role; otherwise registration may fall back to the generic `user` role.
+- Apply `auth.required` and role checks consistently to every private user, clinic, record, settings, role, permission, and audit endpoint. Several routes still use `auth.optional` or have no middleware.
+- Confirm that only Super Admin can read or mutate Super Admin data.
+- Replace development JWT/API secrets and demo passwords.
+- Verify CORS, rate limiting, request validation, token expiration/revocation, password reset, and SMTP configuration.
+- Do not expose temporary passwords in production responses after email delivery is verified.
+
+#### Clinic approval
+
+- Test the full path: landing-page application, Super Admin review, approval, one owner user, owner login, and forced first-login password change.
+- Verify duplicate approval never creates a duplicate owner.
+- Add resend-credentials when email delivery fails.
+- Replace the hardcoded `app.vetintel.com` email preview URL with an environment variable.
+- Add server-side validation for supplied temporary passwords.
+- Wire “Go to User Role Management” to the real User Management route.
+
+#### Messaging
+
+- Add refresh or polling/WebSocket updates so new replies appear without a full reload.
+- Add sent, delivered, and error states in the landing messenger.
+- Add unread counts and mark-as-read behavior for both sides.
+- Render complete reply history in the Super Admin Inbox.
+- Replace positional `string[][]` Inbox state with typed message/reply objects.
+- Make Inbox search functional and implement a real Unread filter.
+- Sanitize all user-generated message content consistently.
+
+#### Admin portal (`admin/`)
+
+- Most of the clinic dashboard is not yet proven against the current backend.
+- Replace mock dashboard data with authenticated API calls.
+- Connect clinic, users, appointments, clients, patient queue, billing, reminders, risk, analytics, reports, sync, and audit pages.
+- Add role-aware navigation and route guards for Clinic Owner, Doctor, and Receptionist.
+- Confirm clinic owners only see their own clinic data.
+- Add loading, empty, error, retry, and permission states.
+
+#### PetWatch mobile (`petwatch-rn/`)
+
+- Many screens still use `src/data/mockData.ts`.
+- Connect login, registration, profile, pets, clinics, appointments, vaccinations, symptoms, history, alerts, and health tips to the backend.
+- Add token persistence and authenticated API requests.
+- Add pet-owner authorization, real appointment creation/cancellation, clinic availability, notifications, and offline/error handling.
+
+#### Super Admin portal
+
+- Fix existing TypeScript unused-import/declaration errors before using type-check as a release gate.
+- Replace remaining reference/placeholder screens with production API behavior.
+- Add pagination, server-side filtering, sorting, and real API counts.
+- Add confirmation and error handling for every destructive action.
+- Add automated tests for registration, login, application approval, duplicate approval, password change, messages, and replies.
+
+### Validation completed
+
+- Landing page JavaScript syntax check passed.
+- Clinic approval backend syntax check passed.
+- VS Code Problems checks passed for the latest modified files.
+- Super Admin production build passed with `npm run build`.
+- Super Admin `npm run type-check` still reports existing unused imports/declarations in multiple files.
+
+### Recommended order for Claude/Codex
+
+1. Start PostgreSQL and the backend with a clean development database.
+2. Verify migrations, roles, demo users, and SMTP configuration.
+3. Add API tests for authentication, approval, duplicate approval, password change, messages, and replies.
+4. Finish approval resend credentials and real User Management navigation.
+5. Finish typed Inbox state, reply history, unread state, search, and refresh.
+6. Enforce strict authentication and role authorization on all private routes.
+7. Connect the Admin portal to real clinic-scoped data.
+8. Connect PetWatch to real pet-owner APIs and remove mock data.
+9. Fix all TypeScript and lint errors.
+10. Run manual acceptance tests for Pet Owner, Clinic Owner, Super Admin, Doctor, and Receptionist.
+11. Remove development credentials, rotate secrets, configure production SMTP, and perform a security review.
+
+### Important files
+
+- `LandingPage/Index.html` — landing page, authentication, registration, messenger, and clinic application form.
+- `routes/api.js` — API routes and middleware wiring.
+- `controllers/userController.js` — registration, login, password changes, and users.
+- `controllers/clinicController.js` — applications, clinic status changes, and owner account creation.
+- `controllers/adminSurfaceController.js` — Super Admin messages, replies, role requests, plans, and demo requests.
+- `super-admin/src/app/components/pages/ClinicManagement.tsx` — clinic application list and approval wizard.
+- `super-admin/src/app/components/pages/ReferenceScreens.tsx` — Inbox and other reference screens.
+- `.env` — local development configuration and demo credentials.
