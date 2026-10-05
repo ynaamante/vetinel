@@ -12,9 +12,23 @@ export const Icons = {
       <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
     </svg>
   ),
+  stethoscope: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path d="M6 3v5a6 6 0 0 0 12 0V3" />
+      <path d="M3 3h6M15 3h6" />
+      <path d="M18 14a4 4 0 1 0 4 4" />
+      <circle cx={22} cy={18} r={1} />
+    </svg>
+  ),
   shield: (
     <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  ),
+  shieldCheck: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <polyline points="8 12 11 15 16 9" />
     </svg>
   ),
   users: (
@@ -29,6 +43,19 @@ export const Icons = {
     <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <polyline points="14 2 14 8 20 8" />
+    </svg>
+  ),
+  bed: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7" />
+      <path d="M3 14h18M7 9V7a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2" />
+      <path d="M3 18v2M21 18v2" />
+    </svg>
+  ),
+  clipboard: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <rect x={5} y={4} width={14} height={17} rx={2} />
+      <path d="M9 4V3h6v1M9 9h6M9 13h6M9 17h4" />
     </svg>
   ),
   refresh: (
@@ -97,6 +124,13 @@ export const Icons = {
       <circle cx={12} cy={12} r={3} />
     </svg>
   ),
+  info: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+      <circle cx={12} cy={12} r={9} />
+      <line x1={12} y1={11} x2={12} y2={16} />
+      <circle cx={12} cy={7.5} r={0.65} fill="currentColor" stroke="none" />
+    </svg>
+  ),
   eyeOff: (
     <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
       <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
@@ -116,10 +150,25 @@ export const Icons = {
       <polyline points="12 5 19 12 12 19" />
     </svg>
   ),
+  transfer: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path d="M4 8h13" />
+      <polyline points="13 4 17 8 13 12" />
+      <path d="M20 16H7" />
+      <polyline points="11 12 7 16 11 20" />
+    </svg>
+  ),
   close: (
     <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
       <line x1={18} y1={6}  x2={6}  y2={18} />
       <line x1={6}  y1={6}  x2={18} y2={18} />
+    </svg>
+  ),
+  moreVertical: (
+    <svg fill="currentColor" viewBox="0 0 24 24">
+      <circle cx={12} cy={5} r={1.7} />
+      <circle cx={12} cy={12} r={1.7} />
+      <circle cx={12} cy={19} r={1.7} />
     </svg>
   ),
   edit: (
@@ -149,6 +198,12 @@ export const Icons = {
       <line x1={10} y1={12} x2={14} y2={12} />
     </svg>
   ),
+  user: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <circle cx={12} cy={7} r={4} />
+      <path d="M4 21c.8-4 3.5-6 8-6s7.2 2 8 6" />
+    </svg>
+  ),
   calendar: (
     <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
       <rect x={3} y={4} width={18} height={18} rx={2} />
@@ -159,11 +214,13 @@ export const Icons = {
   ),
   syringe: (
     <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-      <path d="M18 2l4 4-4 4" />
-      <path d="M22 6H11" />
-      <path d="M15 13l-9 9" />
-      <path d="M9.5 7.5l7 7" />
-      <path d="M3 21l3-3" />
+      <path d="m14 4 6 6" />
+      <path d="m12 6 6 6" />
+      <path d="m14 4 3-3 6 6-3 3" />
+      <path d="m12 6-8 8 6 6 8-8" />
+      <path d="m4 14-2 2" />
+      <path d="m2 22 4-4" />
+      <path d="m8 10 6 6M6 12l2 2M10 8l2 2" />
     </svg>
   ),
   pill: (
@@ -210,6 +267,18 @@ export const Icons = {
       <line x1={9}  y1={9}  x2={15} y2={15} />
     </svg>
   ),
+  send: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path d="M22 2 11 13" />
+      <path d="m22 2-7 20-4-9-9-4Z" />
+    </svg>
+  ),
+  copy: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <rect x={9} y={9} width={11} height={11} rx={2} />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  ),
   mail: (
     <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
       <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
@@ -219,6 +288,19 @@ export const Icons = {
   phone: (
     <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 17z" />
+    </svg>
+  ),
+  location: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0z" />
+      <circle cx={12} cy={10} r={2.5} />
+    </svg>
+  ),
+  download: (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path d="M12 3v12" />
+      <polyline points="7 10 12 15 17 10" />
+      <path d="M5 21h14" />
     </svg>
   ),
   eye: (

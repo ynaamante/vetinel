@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Topbar from '../../components/Topbar';
+import StatusIndicator from '../../components/StatusIndicator';
 import { Icons } from '../../icons';
 import { canViewFeature } from '../../utils/permissionUtils';
 
@@ -16,17 +17,7 @@ function formatDate(value) {
 }
 
 function StatusBadge({ status }) {
-  const normalized = String(status || '').toLowerCase();
-  const map = {
-    pending: { bg: '#fef9c3', color: '#ca8a04' },
-    draft: { bg: '#fef9c3', color: '#ca8a04' },
-    issued: { bg: '#fef9c3', color: '#ca8a04' },
-    overdue: { bg: '#fee2e2', color: '#dc2626' },
-    paid: { bg: '#dcfce7', color: '#16a34a' },
-    void: { bg: '#f1f5f9', color: '#64748b' },
-  };
-  const c = map[normalized] || { bg: '#f1f5f9', color: '#64748b' };
-  return <span style={{ padding: '3px 10px', borderRadius: 20, background: c.bg, color: c.color, fontSize: '.7rem', fontWeight: 600 }}>{String(status || 'Unknown')}</span>;
+  return <StatusIndicator status={status} />;
 }
 
 export default function BillingPage({ user }) {
@@ -141,7 +132,7 @@ export default function BillingPage({ user }) {
             { label: 'Pending Invoices', value: pendingInvoices.length, icon: Icons.clock, iconBg: '#fffbeb', iconColor: '#d97706' },
             { label: "Today's Revenue", value: formatCurrency(todayRevenue), icon: Icons.dollar, iconBg: '#f0fdf4', iconColor: '#16a34a' },
             { label: 'Due Invoices', value: dueInvoices.length, icon: Icons.file, iconBg: '#fef2f2', iconColor: '#dc2626' },
-            { label: 'Payments Processed', value: payments.length, icon: Icons.check, iconBg: '#eff6ff', iconColor: '#1d4ed8' },
+            { label: 'Payments Processed', value: payments.length, icon: Icons.check, iconBg: '#e7f5f2', iconColor: '#07866a' },
           ].map((c) => (
             <div key={c.label} style={s.statCard}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -150,7 +141,7 @@ export default function BillingPage({ user }) {
                 </div>
                 <div>
                   <div style={{ fontSize: '.7rem', color: '#64748b', fontWeight: 500 }}>{c.label}</div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.2 }}>{c.value}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.2 }}>{c.value}</div>
                 </div>
               </div>
             </div>
@@ -234,16 +225,16 @@ const s = {
   main: { flex: 1, overflowY: 'auto', background: '#f4f6f9' },
   page: { padding: '24px 28px' },
   pageHd: { marginBottom: 20 },
-  pageTitle: { fontFamily: "'Syne',sans-serif", fontSize: '1.3rem', fontWeight: 600, letterSpacing: '-.02em' },
+  pageTitle: { fontFamily: "'DM Sans',sans-serif", fontSize: '1.3rem', fontWeight: 600, letterSpacing: '-.02em' },
   pageSub: { fontSize: '.78rem', color: '#64748b', marginTop: 3 },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 },
   statCard: { background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: '16px 20px' },
   card: { background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: '20px 24px' },
   tableTitle: { fontSize: '.9rem', fontWeight: 600, color: '#0f1117', marginBottom: 16 },
   table: { width: '100%', borderCollapse: 'collapse' },
-  th: { textAlign: 'left', fontSize: '.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.06em', paddingBottom: 10, borderBottom: '1px solid #f1f5f9' },
+  th: { textAlign: 'left', fontSize: '.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.06em', paddingBottom: 10, borderBottom: '1px solid #f1f5f9' },
   td: { padding: '13px 0', fontSize: '.82rem', color: '#0f1117', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle' },
-  tdMuted: { padding: '13px 0', fontSize: '.82rem', color: '#94a3b8', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle' },
+  tdMuted: { padding: '13px 0', fontSize: '.82rem', color: '#64748b', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle' },
   processBtn: { display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: '#f8fafc', border: '1px solid #e8ecf0', borderRadius: 6, fontSize: '.75rem', color: '#0f1117', cursor: 'pointer' },
   receiptBtn: { display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: '#f8fafc', border: '1px solid #e8ecf0', borderRadius: 6, fontSize: '.75rem', color: '#0f1117', cursor: 'pointer' },
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Modal, TextInput, Linking, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,20 +6,63 @@ import QRCode from 'react-native-qrcode-svg';
 import { format, parseISO } from 'date-fns';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { ownerSharedRecordsApi } from '../services/api';
 import { colors, spacing, radius } from '../theme/colors';
 import { mockPets, mockVaccinations, mockSymptoms, mockClinics, mockUser } from '../data/mockData';
+
+type SharedRecordBundle = {
+  id: string;
+  petName: string;
+  clinicName: string;
+  createdAt: string;
+  message?: string;
+  records: { id: string; category: string; title: string; detail: string; date?: string; clinicVerified?: boolean; verifiedBy?: string | null; verifiedAt?: string | null }[];
+};
 
 export default function PetDetailsScreen({ route, navigation }: any) {
   const { petId } = route.params;
   const { colors: tc, isDark } = useTheme();
+  const { token } = useAuth();
   const pet = mockPets.find(p => p.id === petId);
   const vacs = mockVaccinations.filter(v => v.petId === petId);
   const symptoms = mockSymptoms.filter(s => s.petId === petId);
   const clinic = mockClinics.find(c => c.id === mockUser.selectedClinicId);
   const [showQR, setShowQR] = useState(false);
   const [editModal, setEditModal] = useState(false);
+  const [sharedRecordBundles, setSharedRecordBundles] = useState<SharedRecordBundle[]>([]);
+  const [sharedRecordsLoading, setSharedRecordsLoading] = useState(true);
+  const [sharedRecordsError, setSharedRecordsError] = useState('');
+  const [sharedRecordsRetry, setSharedRecordsRetry] = useState(0);
   const [petData, setPetData] = useState({ name: pet?.name || '', breed: pet?.breed || '', age: String(pet?.age || ''), weight: String(pet?.weight || ''), color: pet?.color || '' });
   const s = styles(tc, isDark);
+  useEffect(() => {
+    let active = true;
+    if (!token || !pet?.name) {
+      setSharedRecordBundles([]);
+      setSharedRecordsLoading(false);
+      setSharedRecordsError(token ? '' : 'Sign in to view records shared by your clinic.');
+      return () => { active = false; };
+    }
+    setSharedRecordsLoading(true);
+    setSharedRecordsError('');
+    ownerSharedRecordsApi.list(token)
+      .then((bundles: SharedRecordBundle[]) => {
+        if (!Array.isArray(bundles)) throw new Error('The shared records response was not valid.');
+        if (active) {
+          setSharedRecordBundles(bundles.filter(bundle => (
+            bundle.petName?.trim().toLowerCase() === pet.name.trim().toLowerCase()
+          )));
+        }
+      })
+      .catch((error: Error) => {
+        if (active) setSharedRecordsError(error.message || 'Unable to load clinic-shared records.');
+      })
+      .finally(() => {
+        if (active) setSharedRecordsLoading(false);
+      });
+    return () => { active = false; };
+  }, [token, pet?.name, sharedRecordsRetry]);
   if (!pet) return <SafeAreaView style={s.safe}><View style={s.center}><Text style={{ color: tc.text }}>Pet not found</Text></View></SafeAreaView>;
   const upcomingVacs = vacs.filter(v => v.status === 'upcoming');
   const qrData = JSON.stringify({ name: pet.name, species: pet.species, breed: pet.breed, owner: mockUser.name, phone: mockUser.phone, clinic: clinic?.name });
@@ -68,6 +111,45 @@ export default function PetDetailsScreen({ route, navigation }: any) {
               <Ionicons name={item.icon as any} size={28} color={item.c} /><Text style={s.quickLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}
+        </View>
+        <View style={s.section}>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>Shared by your clinic</Text>
+            {sharedRecordsError ? (
+              <TouchableOpacity onPress={() => setSharedRecordsRetry(value => value + 1)}>
+                <Text style={s.seeAll}>Retry</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          {sharedRecordsLoading ? (
+            <Text style={s.sharedRecordsHint}>Loading records shared by your clinic…</Text>
+          ) : sharedRecordsError ? (
+            <Text style={s.sharedRecordsHint}>{sharedRecordsError}</Text>
+          ) : sharedRecordBundles.length ? sharedRecordBundles.map(bundle => (
+            <View key={bundle.id} style={s.sharedBundle}>
+              <Text style={s.sharedClinic}>{bundle.clinicName} · {format(parseISO(bundle.createdAt), 'MMM dd, yyyy')}</Text>
+              {bundle.message ? <Text style={s.sharedMessage}>{bundle.message}</Text> : null}
+              {bundle.records.map(item => (
+                <View key={item.id} style={s.sharedRecord}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.sharedRecordCategory}>{item.category}</Text>
+                    <Text style={s.sharedRecordTitle}>{item.title}</Text>
+                    {item.category === 'Vaccine' && item.clinicVerified && (
+                      <View style={s.sharedVerifiedBadge}>
+                        <Ionicons name="shield-checkmark" size={13} color="#087f65" />
+                        <Text style={s.sharedVerifiedText}>Clinic Verified</Text>
+                      </View>
+                    )}
+                    {item.detail ? <Text style={s.sharedRecordsHint}>{item.detail}</Text> : null}
+                    {item.category === 'Vaccine' && item.clinicVerified && item.verifiedBy ? <Text style={s.sharedVerifiedBy}>Verified by {item.verifiedBy}{item.verifiedAt ? ` · ${new Date(item.verifiedAt).toLocaleDateString()}` : ''}</Text> : null}
+                    {item.date ? <Text style={s.sharedRecordDate}>{new Date(item.date).toLocaleDateString()}</Text> : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )) : (
+            <Text style={s.sharedRecordsHint}>Your clinic has not shared any records for {pet.name} yet.</Text>
+          )}
         </View>
         {upcomingVacs.length > 0 && (
           <View style={s.section}>
@@ -163,6 +245,17 @@ const styles = (tc: any, isDark: boolean) => StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: tc.text },
   seeAll: { fontSize: 14, color: colors.primary },
+  sharedBundle: { padding: 12, marginBottom: 10, borderWidth: 1, borderColor: tc.border, borderRadius: radius.md, backgroundColor: tc.background },
+  sharedClinic: { marginBottom: 7, color: colors.primary, fontSize: 12, fontWeight: '600' },
+  sharedMessage: { marginBottom: 8, color: tc.text, fontSize: 13, lineHeight: 18 },
+  sharedRecord: { paddingVertical: 9, borderTopWidth: 1, borderTopColor: tc.border },
+  sharedRecordCategory: { marginBottom: 2, color: tc.textMuted, fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
+  sharedRecordTitle: { color: tc.text, fontSize: 14, fontWeight: '600' },
+  sharedVerifiedBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, paddingHorizontal: 8, paddingVertical: 4, marginTop: 6, borderRadius: 99, backgroundColor: '#E5F7F1' },
+  sharedVerifiedText: { color: '#087f65', fontSize: 11, fontWeight: '700' },
+  sharedVerifiedBy: { marginTop: 4, color: tc.textSecondary, fontSize: 11 },
+  sharedRecordDate: { marginTop: 3, color: tc.textMuted, fontSize: 11 },
+  sharedRecordsHint: { color: tc.textSecondary, fontSize: 12, lineHeight: 17 },
   vacRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', borderRadius: radius.md, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#FED7AA' },
   vacName: { fontSize: 14, fontWeight: '600', color: '#9A3412' },
   vacDate: { fontSize: 12, color: '#C2410C' },

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Topbar from '../../components/Topbar';
+import StatusIndicator from '../../components/StatusIndicator';
 import { Icons } from '../../icons';
 import { canViewFeature } from '../../utils/permissionUtils';
 
@@ -10,16 +11,7 @@ function formatTime(value) {
 }
 
 function QueueBadge({ status }) {
-  const map = {
-    'in-consultation': { bg: '#eff6ff', color: '#1d4ed8' },
-    waiting: { bg: '#fef9c3', color: '#ca8a04' },
-  };
-  const c = map[status] || { bg: '#f1f5f9', color: '#64748b' };
-  return (
-    <span style={{ padding: '3px 10px', borderRadius: 20, background: c.bg, color: c.color, fontSize: '.7rem', fontWeight: 600 }}>
-      {status || 'Unknown'}
-    </span>
-  );
+  return <StatusIndicator status={status || 'Unknown'} />;
 }
 
 export default function PatientQueuePage({ user }) {
@@ -97,7 +89,7 @@ export default function PatientQueuePage({ user }) {
 
         <div style={s.statsGrid}>
           {[
-            { label: 'Total in Queue', value: total, icon: Icons.users, iconBg: '#eff6ff', iconColor: '#1d4ed8' },
+            { label: 'Total in Queue', value: total, icon: Icons.users, iconBg: '#e7f5f2', iconColor: '#07866a' },
             { label: 'Waiting', value: waitingCount, icon: Icons.clock, iconBg: '#fffbeb', iconColor: '#d97706' },
             { label: 'In Consultation', value: inConsultationCount, icon: Icons.check, iconBg: '#f0fdf4', iconColor: '#16a34a' },
           ].map((c) => (
@@ -108,7 +100,7 @@ export default function PatientQueuePage({ user }) {
                 </div>
                 <div>
                   <div style={{ fontSize: '.7rem', color: '#64748b', fontWeight: 500 }}>{c.label}</div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.2 }}>{c.value}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.2 }}>{c.value}</div>
                 </div>
               </div>
             </div>
@@ -161,14 +153,14 @@ const s = {
   main: { flex: 1, overflowY: 'auto', background: '#f4f6f9' },
   page: { padding: '24px 28px' },
   pageHd: { marginBottom: 20 },
-  pageTitle: { fontFamily: "'Syne',sans-serif", fontSize: '1.3rem', fontWeight: 600, letterSpacing: '-.02em' },
+  pageTitle: { fontFamily: "'DM Sans',sans-serif", fontSize: '1.3rem', fontWeight: 600, letterSpacing: '-.02em' },
   pageSub: { fontSize: '.78rem', color: '#64748b', marginTop: 3 },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 20 },
   statCard: { background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: '16px 20px' },
   card: { background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: '20px 24px' },
   tableTitle: { fontSize: '.9rem', fontWeight: 600, color: '#0f1117', marginBottom: 16 },
   table: { width: '100%', borderCollapse: 'collapse' },
-  th: { textAlign: 'left', fontSize: '.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.06em', paddingBottom: 10, borderBottom: '1px solid #f1f5f9' },
+  th: { textAlign: 'left', fontSize: '.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.06em', paddingBottom: 10, borderBottom: '1px solid #f1f5f9' },
   td: { padding: '13px 0', fontSize: '.82rem', color: '#0f1117', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle' },
   completeBtn: { display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, fontSize: '.75rem', color: '#16a34a', cursor: 'pointer', fontWeight: 500 },
   startBtn: { display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: '#f8fafc', border: '1px solid #e8ecf0', borderRadius: 6, fontSize: '.75rem', color: '#0f1117', cursor: 'pointer', fontWeight: 500 },

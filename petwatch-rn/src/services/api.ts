@@ -1,7 +1,7 @@
 // API Service for petwatch-rn
-// Connects to the Vetinel backend at localhost:3000
+// For a physical device, set EXPO_PUBLIC_API_URL to the backend's reachable URL.
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api').replace(/\/+$/, '');
 
 interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -214,6 +214,12 @@ export const healthRecordsApi = {
   },
 };
 
+// ==================== OWNER-SHARED CLINIC RECORDS ====================
+
+export const ownerSharedRecordsApi = {
+  list: async (token: string) => apiCall('/owner/shared-records', { method: 'GET', token }),
+};
+
 // ==================== ALERTS & NOTIFICATIONS ====================
 
 export const alertsApi = {
@@ -260,6 +266,7 @@ export default {
   vaccinationsApi,
   clinicsApi,
   healthRecordsApi,
+  ownerSharedRecordsApi,
   alertsApi,
   usersApi,
 };

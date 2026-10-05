@@ -226,7 +226,7 @@ export default function DiseaseMonitoringPage({ user }) {
               style={{
                 ...s.select,
                 background: canExportAlert ? '#f4f6f9' : '#f8fafc',
-                color: canExportAlert ? '#0f1117' : '#94a3b8',
+                color: canExportAlert ? '#0f1117' : '#64748b',
                 cursor: canExportAlert ? 'pointer' : 'not-allowed',
               }}
               value={disease}
@@ -239,7 +239,7 @@ export default function DiseaseMonitoringPage({ user }) {
               style={{
                 ...s.select,
                 background: canExportAlert ? '#f4f6f9' : '#f8fafc',
-                color: canExportAlert ? '#0f1117' : '#94a3b8',
+                color: canExportAlert ? '#0f1117' : '#64748b',
                 cursor: canExportAlert ? 'pointer' : 'not-allowed',
               }}
               value={timeRange}
@@ -252,7 +252,7 @@ export default function DiseaseMonitoringPage({ user }) {
               style={{
                 ...s.select,
                 background: canExportAlert ? '#f4f6f9' : '#f8fafc',
-                color: canExportAlert ? '#0f1117' : '#94a3b8',
+                color: canExportAlert ? '#0f1117' : '#64748b',
                 cursor: canExportAlert ? 'pointer' : 'not-allowed',
               }}
               value={region}
@@ -266,7 +266,7 @@ export default function DiseaseMonitoringPage({ user }) {
               ...s.exportBtn,
               opacity: canExportAlert ? 1 : 0.65,
               background: canExportAlert ? '#0f1117' : '#f8fafc',
-              color: canExportAlert ? '#fff' : '#94a3b8',
+              color: canExportAlert ? '#fff' : '#64748b',
               border: canExportAlert ? 'none' : '1px solid #cbd5e1',
               cursor: canExportAlert ? 'pointer' : 'not-allowed',
             }}
@@ -294,7 +294,7 @@ export default function DiseaseMonitoringPage({ user }) {
               ...s.alertBtn,
               opacity: canAlertClinics ? 1 : 0.65,
               background: canAlertClinics ? '#dc2626' : '#f8fafc',
-              color: canAlertClinics ? '#fff' : '#94a3b8',
+              color: canAlertClinics ? '#fff' : '#64748b',
               border: canAlertClinics ? 'none' : '1px solid #cbd5e1',
               cursor: canAlertClinics ? 'pointer' : 'not-allowed',
             }}
@@ -328,7 +328,7 @@ export default function DiseaseMonitoringPage({ user }) {
             <div style={s.toggleRow}>
               <span style={s.toggleLabel}>Show Vaccination Rate</span>
               <div
-                style={{ ...s.toggle, background: showVacc ? '#1d4ed8' : '#e2e8f0' }}
+                style={{ ...s.toggle, background: showVacc ? '#07866a' : '#e2e8f0' }}
                 onClick={() => setShowVacc(v => !v)}
               >
                 <div style={{
@@ -340,9 +340,9 @@ export default function DiseaseMonitoringPage({ user }) {
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={LINE_DATA}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#b8c4d3" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
               <ReferenceLine
                 y={50} stroke="#fca5a5" strokeDasharray="4 4"
@@ -350,8 +350,8 @@ export default function DiseaseMonitoringPage({ user }) {
               />
               <Line
                 type="monotone" dataKey="cases"
-                stroke="#3b82f6" strokeWidth={2}
-                dot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }}
+                stroke="#139b76" strokeWidth={2}
+                dot={{ r: 4, fill: '#139b76', strokeWidth: 0 }}
                 activeDot={{ r: 6 }}
               />
             </LineChart>
@@ -370,14 +370,14 @@ export default function DiseaseMonitoringPage({ user }) {
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={CLINIC_DATA} barSize={40}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#b8c4d3" />
               <XAxis
                 dataKey="name"
                 tick={({ x, y, payload }) => (
                   <text
                     x={x} y={y + 12}
                     textAnchor="middle" fontSize={11}
-                    fill={payload.value === 'CLI-001 (You)' ? '#1d4ed8' : '#94a3b8'}
+                    fill={payload.value === 'CLI-001 (You)' ? '#07866a' : '#64748b'}
                     fontWeight={payload.value === 'CLI-001 (You)' ? 600 : 400}
                   >
                     {payload.value}
@@ -385,12 +385,12 @@ export default function DiseaseMonitoringPage({ user }) {
                 )}
                 axisLine={false} tickLine={false}
               />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
               <ReferenceLine y={30} stroke="#fca5a5" strokeDasharray="4 4" />
               <Bar dataKey="cases" radius={[4, 4, 0, 0]}>
                 {CLINIC_DATA.map((d, i) => (
-                  <Cell key={i} fill={d.you ? '#1e3a8a' : '#3b82f6'} />
+                  <Cell key={i} fill={d.you ? '#1e3a8a' : '#139b76'} />
                 ))}
               </Bar>
             </BarChart>
@@ -484,7 +484,7 @@ const s = {
     borderRadius: 14, padding: '22px 24px',
   },
   growthVal: {
-    fontFamily: "'Syne', sans-serif", fontSize: '2.8rem',
+    fontFamily: "'DM Sans', sans-serif", fontSize: '2.8rem',
     fontWeight: 700, color: '#dc2626', letterSpacing: '-.03em',
   },
   growthSub:  { fontSize: '.78rem', color: '#64748b', marginTop: 6 },
@@ -494,7 +494,7 @@ const s = {
     display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
   },
   casesVal: {
-    fontFamily: "'Syne', sans-serif", fontSize: '2.8rem',
+    fontFamily: "'DM Sans', sans-serif", fontSize: '2.8rem',
     fontWeight: 700, color: '#0f1117', letterSpacing: '-.03em',
   },
   casesSub:  { fontSize: '.78rem', color: '#64748b', marginTop: 6 },
@@ -507,7 +507,7 @@ const s = {
     justifyContent: 'space-between', marginBottom: 16, gap: 12,
   },
   cardTitle: { fontSize: '.88rem', fontWeight: 600, color: '#0f1117', letterSpacing: '-.01em' },
-  cardDesc:  { fontSize: '.7rem', color: '#94a3b8', marginTop: 3, lineHeight: 1.5 },
+  cardDesc:  { fontSize: '.7rem', color: '#64748b', marginTop: 3, lineHeight: 1.5 },
   toggleRow:   { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
   toggleLabel: { fontSize: '.75rem', color: '#64748b', whiteSpace: 'nowrap' },
   toggle: {
@@ -530,10 +530,10 @@ const s = {
   },
   alertTitle:  { fontSize: '.84rem', fontWeight: 500, color: '#0f1117' },
   alertDesc:   { fontSize: '.75rem', color: '#64748b', marginTop: 2 },
-  alertDate:   { fontSize: '.68rem', color: '#94a3b8', marginTop: 3 },
+  alertDate:   { fontSize: '.68rem', color: '#64748b', marginTop: 3 },
   viewDetails: {
     display: 'flex', alignItems: 'center', gap: 4,
-    fontSize: '.75rem', color: '#1d4ed8',
+    fontSize: '.75rem', color: '#07866a',
     cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
   },
 };
@@ -563,7 +563,7 @@ const m = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   headerTitle: { fontSize: '.95rem', fontWeight: 600, color: '#0f1117' },
-  headerDate:  { fontSize: '.73rem', color: '#94a3b8', marginTop: 3 },
+  headerDate:  { fontSize: '.73rem', color: '#64748b', marginTop: 3 },
   closeBtn: {
     background: 'none', border: 'none',
     cursor: 'pointer', padding: 4,
@@ -589,7 +589,7 @@ const m = {
     fontSize: '.82rem', color: '#64748b',
     lineHeight: 1.6, marginBottom: 4,
   },
-  bullet: { color: '#94a3b8', flexShrink: 0 },
+  bullet: { color: '#64748b', flexShrink: 0 },
   footer: {
     display: 'flex', gap: 10,
     padding: '16px 22px 20px',

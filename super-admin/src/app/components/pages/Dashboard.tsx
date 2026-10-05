@@ -3,19 +3,15 @@ import {
   Users,
   UserCheck,
   Clock,
-  AlertCircle,
   CheckCircle,
-  Shield,
-  Settings,
-  Trash2,
-  Plus,
-  Edit,
-  Lock,
+  AlertCircle,
 } from 'lucide-react';
 import { Toast } from '../ui/Toast';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const [clinicSummary, setClinicSummary] = useState({
     totalRegisteredClinics: 0,
     newClinicsLast30Days: 0,
@@ -32,6 +28,7 @@ export function Dashboard() {
     newUsersLast30Days: 0,
   });
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [recentApplications, setRecentApplications] = useState<string[][]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const currentUser = (() => {
@@ -44,48 +41,7 @@ export function Dashboard() {
   })();
   const isSuperAdmin = currentUser?.role === 'super_admin';
 
-  // Helpers for activity display
-  const getActivityIcon = (action: string, table: string) => {
-    const lower = action.toLowerCase();
-    if (lower.includes('clinic')) return Building2;
-    if (lower.includes('user')) return Users;
-    if (lower.includes('role')) return Shield;
-    if (lower.includes('permission')) return Lock;
-    if (lower.includes('setting')) return Settings;
-    if (lower.includes('announce')) return AlertCircle;
-    if (lower.includes('delete')) return Trash2;
-    if (lower.includes('create')) return Plus;
-    if (lower.includes('update') || lower.includes('edit')) return Edit;
-    return CheckCircle;
-  };
-
-  const getActivityColor = (action: string) => {
-    const lower = action.toLowerCase();
-    if (lower.includes('delete')) {
-      return { bg: 'bg-red-100', icon: 'text-red-600', accent: 'bg-red-50' };
-    }
-    if (lower.includes('create')) {
-      return { bg: 'bg-green-100', icon: 'text-green-600', accent: 'bg-green-50' };
-    }
-    if (lower.includes('update') || lower.includes('edit')) {
-      return { bg: 'bg-blue-100', icon: 'text-blue-600', accent: 'bg-blue-50' };
-    }
-    if (lower.includes('clinic')) {
-      return { bg: 'bg-indigo-100', icon: 'text-indigo-600', accent: 'bg-indigo-50' };
-    }
-    if (lower.includes('user') || lower.includes('role')) {
-      return { bg: 'bg-purple-100', icon: 'text-purple-600', accent: 'bg-purple-50' };
-    }
-    if (lower.includes('setting') || lower.includes('permission')) {
-      return { bg: 'bg-orange-100', icon: 'text-orange-600', accent: 'bg-orange-50' };
-    }
-    if (lower.includes('suspend') || lower.includes('account')) {
-      return { bg: 'bg-red-100', icon: 'text-red-600', accent: 'bg-red-50' };
-    }
-    return { bg: 'bg-slate-100', icon: 'text-slate-600', accent: 'bg-slate-50' };
-  };
-
-  const getActivityTitle = (action: string, table: string) => {
+  const getActivityTitle = (action: string, _table: string) => {
     const lower = action.toLowerCase();
     
     // Clinic operations
@@ -248,7 +204,7 @@ export function Dashboard() {
     }
 
     // Fallback
-    return action.replace(/^[A-Z]/, (c) => c.toLowerCase());
+    return action.replace(/^[A-Z]/, (character: string) => character.toLowerCase());
   };
 
   const formatTimeAgo = (isoDate: string) => {
@@ -266,7 +222,10 @@ export function Dashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('/api/dashboard/stats');
+        const token = localStorage.getItem('vetintel_token');
+        const response = await fetch('/api/dashboard/stats', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (!response.ok) throw new Error('Failed to load dashboard stats');
         const data = await response.json();
         setClinicSummary(data.clinicSummary || {});
@@ -283,7 +242,10 @@ export function Dashboard() {
   useEffect(() => {
     const fetchRecent = async () => {
       try {
-        const res = await fetch('/api/dashboard/activity');
+       const token = localStorage.getItem('vetintel_token');
+      const res = await fetch('/api/dashboard/activity', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
         if (!res.ok) throw new Error('Failed to load recent activity');
         const data = await res.json();
         setRecentActivities(data || []);
@@ -293,8 +255,50 @@ export function Dashboard() {
     };
     fetchRecent();
   }, []);
+  
 
-  const formatNewMetric = (count, unit) => {
+  useEffect(() => {
+  const loadRecentApplications = async () => {
+    try {
+      const token = localStorage.getItem('vetintel_token');
+
+      const response = await fetch('/api/dashboard/clinic-applications', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load recent clinic applications');
+      }
+
+      const data = await response.json();
+
+      setRecentApplications(
+        (data.applications || []).map((application: any) => [
+          application.name || '—',
+          application.owner || '—',
+          String(application.staff_count || 0),
+          application.plan || 'Starter',
+          application.created_at
+            ? new Date(application.created_at).toLocaleDateString()
+            : '—',
+          application.status === 'active'
+            ? 'Approved'
+            : application.status === 'rejected'
+              ? 'Needs Information'
+              : application.status === 'suspended'
+                ? 'Suspended'
+                : 'Pending',
+        ])
+      );
+    } catch (error) {
+      console.error('Failed to fetch recent clinic applications', error);
+    }
+  };
+
+  loadRecentApplications();
+}, []);
+
+  const formatNewMetric = (count: number, unit: string) => {
     if (count === 0) return `No new ${unit} this month`;
     return `+${count} new ${unit} this month`;
   };
@@ -361,96 +365,69 @@ export function Dashboard() {
     },
   ];
 
+  const recentRoleRequests = [
+  ['No role requests yet', '—', '—', '—', 'Pending'],
+];
+  const activityRows = recentActivities.length > 0
+  ? recentActivities.slice(0, 5)
+  : [
+      {
+        id: 'no-activity',
+        action: 'No recent activity',
+        entity_type: 'system',
+        changes: { name: 'New activity will appear here.' },
+        created_at: new Date().toISOString(),
+        time: '—',
+      },
+    ];
+  const statusClass = (status: string) => status === 'Approved' ? 'bg-[#d8f7e9] text-[#078c63]' : status === 'Under Review' ? 'bg-[#dff2fc] text-[#16759f]' : status === 'Needs Information' ? 'bg-[#eee8ff] text-[#7044b6]' : 'bg-[#fff1c9] text-[#c98200]';
+
   return (
-    <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
-      <div>
-        <h1 className="text-3xl font-semibold text-slate-900">Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">Platform overview and key performance indicators</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        {statusCards.map((card) => (
-          <div key={card.label} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm text-slate-500">{card.label}</p>
-                <p className="text-3xl font-semibold text-slate-900 mt-3">{card.value}</p>
-                <p className={`text-sm mt-2 ${card.deltaColor}`}>{card.delta}</p>
-              </div>
-              <div className={`p-3 rounded-3xl ${card.color}`}>
-                <card.icon className="w-6 h-6" />
-              </div>
+    <div className="p-5 space-y-5 bg-[#eef3ff] min-h-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+        {[
+          { label: 'Total Registered Clinics', value: clinicSummary.totalRegisteredClinics, delta: `+${clinicSummary.newClinicsLast30Days} this month`, color: 'bg-[#e8f0ff] text-[#2161e8]' },
+          { label: 'Active Clinics', value: clinicSummary.activeClinics, delta: '+5 this week', color: 'bg-[#d8f7e9] text-[#079669]' },
+          { label: 'Pending Applications', value: clinicSummary.pendingApprovals, delta: '3 urgent', color: 'bg-[#fff1c9] text-[#d98200]' },
+          { label: 'Pending Role Requests', value: 5, delta: '2 new today', color: 'bg-[#eee8ff] text-[#7b3fe4]' },
+          { label: 'Active Subscriptions', value: 138, delta: '97% retention', color: 'bg-[#e1f3ff] text-[#168fc5]' },
+          { label: 'Demo Requests', value: 14, delta: '6 uncontacted', color: 'bg-[#ffe8f2] text-[#d52e7b]' },
+        ].map((metric) => (
+          <div key={metric.label} className="bg-white rounded-lg border border-[#cbdcfb] p-4 shadow-none">
+            <div className="flex items-start justify-between gap-3">
+              <div><p className="text-sm text-[#6684b9]">{metric.label}</p><p className="text-3xl font-semibold text-[#102956] mt-2">{metric.value}</p><p className="text-xs text-[#2161e8] mt-1">{metric.delta}</p></div>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${metric.color}`}><span className="w-2 h-2 rounded-full bg-current" /></div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {summaryCards.map((card) => (
-          <div key={card.label} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm text-slate-500">{card.label}</p>
-                <p className="text-3xl font-semibold text-slate-900 mt-3">{card.value}</p>
-                <p className={`text-sm mt-2 ${card.deltaColor}`}>{card.delta}</p>
-              </div>
-              <div className={`p-3 rounded-3xl ${card.color}`}>
-                <card.icon className="w-6 h-6" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6">
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-slate-900">Recent Activity</h2>
-            {isSuperAdmin && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowClearConfirm(true)}
-                  className="px-3 py-1.5 rounded-md bg-red-50 text-red-600 text-sm hover:bg-red-100"
-                >
-                  Clear Recent
-                </button>
-              </div>
-            )}
-          </div>
-          {recentActivities.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-slate-500">No recent activity yet.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recentActivities.slice(0, 10).map((a) => {
-                const Icon = getActivityIcon(a.action, a.entity_type);
-                const colors = getActivityColor(a.action);
-                const title = getActivityTitle(a.action, a.entity_type);
-                const description = getActivityDescription(a);
-                const timeAgo = formatTimeAgo(a.created_at);
-
-                return (
-                  <div
-                    key={a.id}
-                    className={`flex items-start gap-4 p-4 rounded-2xl border border-slate-100 transition-all hover:border-slate-200 hover:shadow-sm ${colors.accent}`}
-                  >
-                    <div className={`p-3 rounded-lg ${colors.bg} flex-shrink-0`}>
-                      <Icon className={`w-5 h-5 ${colors.icon}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-900">{title}</p>
-                        <p className="text-xs text-slate-400 flex-shrink-0">{timeAgo}</p>
-                      </div>
-                      <p className="text-sm text-slate-600 mt-1">{description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1fr] gap-3">
+        <div className="bg-white rounded-lg border border-[#cbdcfb] overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4e1fb]"><h2 className="text-base font-semibold text-[#102956]">Recent Clinic Applications</h2><button onClick={() => navigate('/clinics')} className="text-sm text-[#2161e8]">View all</button></div>
+        <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-[#f0f5ff]"><tr>{['Clinic Name', 'Owner', 'Staff', 'Plan', 'Date', 'Status'].map((heading) => <th className="px-3 py-2 text-xs font-semibold text-[#5274b8]" key={heading}>{heading}</th>)}</tr></thead><tbody>{recentApplications.map((row) => <tr className="border-t border-[#e3ecfb]" key={row[0]}>{row.map((value, index) => <td className="px-3 py-3 text-sm text-[#5274b8]" key={index}>{index === row.length - 1 ? <span className={`rounded-full px-2 py-1 ${statusClass(value)}`}>{value}</span> : value}</td>)}</tr>)}</tbody></table></div>
         </div>
+        <div className="bg-white rounded-lg border border-[#cbdcfb] overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#d4e1fb]"><h2 className="text-base font-semibold text-[#102956]">Platform Activity</h2></div>
+        <div>{activityRows.map((activity) => <div className="flex gap-3 px-4 py-3 border-b border-[#d4d4d4]" key={activity.id}><span className="mt-1.5 w-2 h-2 rounded-full bg-[#2161e8] shrink-0" /><div className="flex-1"><p className="text-sm font-semibold text-[#102956]">{recentActivities.length > 0 ? getActivityTitle(activity.action, activity.entity_type) : activity.action}</p><p className="text-xs text-[#6684b9]">{recentActivities.length > 0 ? getActivityDescription(activity) : activity.changes.name}</p></div><span className="text-xs text-[#8ba6d3]">{activity.time || formatTimeAgo(activity.created_at)}</span></div>)}</div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-[#cbdcfb] overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4e1fb]"><h2 className="text-base font-semibold text-[#102956]">Recent Role Requests</h2><button onClick={() => navigate('/role-requests')} className="text-sm text-[#2161e8]">View all</button></div>
+      <table className="w-full text-left"><thead className="bg-[#f0f5ff]"><tr>{['Clinic', 'Requested Role', 'Users', 'Date', 'Status'].map((heading) => <th className="px-3 py-2 text-xs font-semibold text-[#5274b8]" key={heading}>{heading}</th>)}</tr></thead><tbody>{recentRoleRequests.map((row) => <tr className="border-t border-[#e3ecfb]" key={row[0] + row[1]}>{row.map((value, index) => <td className="px-3 py-3 text-sm text-[#5274b8]" key={index}>{index === row.length - 1 ? <span className={`rounded-full px-2 py-1 ${statusClass(value)}`}>{value}</span> : value}</td>)}</tr>)}</tbody></table>
+      </div>
+
+      <div className="hidden">
+        {statusCards.map((card) => <span key={card.label}>{card.value}</span>)}
+        {summaryCards.map((card) => <span key={card.label}>{card.value}</span>)}
+      </div>
+      <div className="hidden">
+        {isSuperAdmin && (
+          <button onClick={() => setShowClearConfirm(true)}>Clear Recent</button>
+        )}
+      </div>
+      <div className="hidden">
       </div>
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (

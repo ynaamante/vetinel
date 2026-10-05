@@ -36,6 +36,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 logs/
+Vetintel_backup_*.sql
 
 # OS files
 .DS_Store

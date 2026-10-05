@@ -21,17 +21,17 @@ const ALL_FEATURES = [
   'User & Role Management',
   'Financial Monitoring',
   'Audit Trail',
+  // Clinical Records
+  'Pet Profiles',
+  'Medical Records',
+  'Vaccination Records',
+  'Treatment Records',
   // Operations
   'Appointment Management',
   'Patient Queue',
   'Billing & Payments',
   'Client Management',
   'Due Dates & Reminders',
-  // Clinical Records
-  'Pet Profiles',
-  'Medical Records',
-  'Vaccination Records',
-  'Treatment Records',
 ];
 
 const DEFAULT_PERMISSION_OBJECT = {

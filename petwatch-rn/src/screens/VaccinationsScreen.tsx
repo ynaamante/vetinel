@@ -1,22 +1,85 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { ownerSharedRecordsApi } from '../services/api';
 import { colors, spacing, radius } from '../theme/colors';
 import { mockPets, mockVaccinations, Vaccination } from '../data/mockData';
+
+type SharedVaccination = {
+  id: string;
+  title: string;
+  detail: string;
+  date?: string;
+  clinicVerified?: boolean;
+  verifiedBy?: string | null;
+  verifiedAt?: string | null;
+  clinicName: string;
+};
+
+type SharedRecordBundle = {
+  petName?: string;
+  clinicName?: string;
+  records?: Array<{
+    id: string;
+    category: string;
+    title: string;
+    detail: string;
+    date?: string;
+    clinicVerified?: boolean;
+    verifiedBy?: string | null;
+    verifiedAt?: string | null;
+  }>;
+};
 
 export default function VaccinationsScreen({ route, navigation }: any) {
   const { petId } = route.params || {};
   const { colors: tc, isDark } = useTheme();
+  const { token } = useAuth();
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ vaccine: '', date: '', nextDue: '', vetName: '' });
+  const [sharedVaccinations, setSharedVaccinations] = useState<SharedVaccination[]>([]);
+  const [sharedLoading, setSharedLoading] = useState(true);
+  const [sharedError, setSharedError] = useState('');
+  const [sharedRetry, setSharedRetry] = useState(0);
   const s = styles(tc, isDark);
   const pet = mockPets.find(p => p.id === petId) || mockPets[0];
   const vacs = mockVaccinations.filter(v => v.petId === petId);
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    let active = true;
+    if (!token) {
+      setSharedVaccinations([]);
+      setSharedLoading(false);
+      setSharedError('Sign in to view vaccination records shared by your clinic.');
+      return () => { active = false; };
+    }
+    setSharedLoading(true);
+    setSharedError('');
+    ownerSharedRecordsApi.list(token)
+      .then((bundles: SharedRecordBundle[]) => {
+        if (!Array.isArray(bundles)) throw new Error('The shared vaccination records response was not valid.');
+        if (active) {
+          setSharedVaccinations(bundles
+            .filter(bundle => bundle.petName?.trim().toLowerCase() === pet.name.trim().toLowerCase())
+            .flatMap(bundle => (Array.isArray(bundle.records) ? bundle.records : [])
+              .filter(record => record.category === 'Vaccine')
+              .map(record => ({ ...record, clinicName: bundle.clinicName || 'Your clinic' }))));
+        }
+      })
+      .catch((error: Error) => {
+        if (active) setSharedError(error.message || 'Unable to load clinic-shared vaccination records.');
+      })
+      .finally(() => {
+        if (active) setSharedLoading(false);
+      });
+    return () => { active = false; };
+  }, [token, pet.name, sharedRetry]);
 
   const getStatus = (vac: Vaccination) => {
     const days = differenceInDays(parseISO(vac.nextDue), new Date());
@@ -82,7 +145,34 @@ export default function VaccinationsScreen({ route, navigation }: any) {
         keyExtractor={i => i.id}
         renderItem={({ item }) => <Card item={item} />}
         contentContainerStyle={{ padding: spacing.md, paddingBottom: 24 }}
-        ListEmptyComponent={
+        ListHeaderComponent={
+          <View style={s.sharedSection}>
+            <View style={s.sharedHeading}>
+              <Text style={s.sharedTitle}>Shared by your clinic</Text>
+              {sharedError ? <TouchableOpacity onPress={() => setSharedRetry(value => value + 1)}><Text style={s.retryText}>Retry</Text></TouchableOpacity> : null}
+            </View>
+            {sharedLoading ? <Text style={s.sharedHint}>Loading clinic-shared records…</Text>
+              : sharedError ? <Text style={s.sharedHint}>{sharedError}</Text>
+                : sharedVaccinations.length ? sharedVaccinations.map(item => (
+                  <View key={item.id} style={s.sharedCard}>
+                    <View style={s.sharedCardHeading}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.vacName}>{item.title}</Text>
+                        <Text style={s.vetName}>{item.clinicName}</Text>
+                      </View>
+                      <View style={s.verifiedBadge}>
+                        <Ionicons name={item.clinicVerified ? 'shield-checkmark' : 'checkmark-circle'} size={13} color={item.clinicVerified ? '#087f65' : '#56758a'} />
+                        <Text style={[s.verifiedBadgeText, !item.clinicVerified && s.sharedBadgeText]}>{item.clinicVerified ? 'Clinic Verified' : 'Shared by Clinic'}</Text>
+                      </View>
+                    </View>
+                    <Text style={s.sharedDetail}>{item.detail}</Text>
+                    {item.date ? <Text style={s.sharedDate}>{new Date(item.date).toLocaleDateString()}</Text> : null}
+                    {item.clinicVerified && item.verifiedBy ? <Text style={s.verifiedBy}>Verified by {item.verifiedBy}{item.verifiedAt ? ` · ${new Date(item.verifiedAt).toLocaleDateString()}` : ''}</Text> : null}
+                  </View>
+                )) : <Text style={s.sharedHint}>Your clinic has not shared any vaccination records for {pet.name} yet.</Text>}
+          </View>
+        }
+        ListEmptyComponent={sharedVaccinations.length ? null : (
           <View style={s.empty}>
             <Ionicons name="medical-outline" size={48} color={tc.textMuted} />
             <Text style={s.emptyText}>No vaccination records</Text>
@@ -90,7 +180,7 @@ export default function VaccinationsScreen({ route, navigation }: any) {
               <Text style={s.primaryBtnText}>Add Record</Text>
             </TouchableOpacity>
           </View>
-        }
+        )}
       />
 
       <Modal visible={modal} transparent animationType="slide">
@@ -137,6 +227,19 @@ const styles = (tc: any, isDark: boolean) => StyleSheet.create({
   dateLabel: { fontSize: 11, color: tc.textMuted, marginBottom: 4 },
   dateVal: { fontSize: 13, fontWeight: '600', color: tc.text },
   notes: { fontSize: 13, color: tc.textSecondary, marginTop: 10, fontStyle: 'italic' },
+  sharedSection: { marginBottom: 18 },
+  sharedHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
+  sharedTitle: { fontSize: 15, fontWeight: '700', color: tc.text },
+  retryText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  sharedHint: { color: tc.textSecondary, fontSize: 12, lineHeight: 17, paddingVertical: 5 },
+  sharedCard: { padding: 13, marginBottom: 9, borderWidth: 1, borderColor: tc.border, borderRadius: radius.md, backgroundColor: tc.surface },
+  sharedCardHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 99, backgroundColor: '#E5F7F1' },
+  verifiedBadgeText: { color: '#087f65', fontSize: 10, fontWeight: '700' },
+  sharedBadgeText: { color: '#56758a' },
+  sharedDetail: { marginTop: 8, color: tc.textSecondary, fontSize: 12, lineHeight: 17 },
+  sharedDate: { marginTop: 5, color: tc.textMuted, fontSize: 11 },
+  verifiedBy: { marginTop: 5, color: tc.textSecondary, fontSize: 11 },
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyText: { fontSize: 15, color: tc.textSecondary, marginVertical: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

@@ -7,7 +7,12 @@ import {
   Shield,
   FileText,
   Settings,
-  Search,
+  UserCog,
+  ClipboardList,
+  CreditCard,
+  Video,
+  BarChart3,
+  Inbox,
   Bell,
   Menu,
   X,
@@ -42,10 +47,15 @@ const notificationIcons: Record<Notification['type'], React.ReactNode> = {
 
 const navigation = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'Clinic Management', path: '/clinics', icon: Building2 },
-  { name: 'User Management', path: '/users', icon: Users },
-  { name: 'Roles & Permissions', path: '/roles', icon: Shield },
+  { name: 'Clinic Applications', path: '/clinics', icon: Building2 },
+  { name: 'Active Clinics', path: '/active-clinics', icon: Building2 },
+  { name: 'User Role Management', path: '/users', icon: UserCog },
+  { name: 'Role Requests', path: '/role-requests', icon: ClipboardList },
+  { name: 'Subscription Plans', path: '/subscription-plans', icon: CreditCard },
+  { name: 'Demo Requests', path: '/demo-requests', icon: Video },
+  { name: 'Platform Reports', path: '/reports', icon: BarChart3 },
   { name: 'Audit Trail', path: '/audit', icon: FileText },
+  { name: 'Inbox', path: '/inbox', icon: Inbox },
 ];
 
 export function DashboardLayout() {
@@ -55,7 +65,7 @@ export function DashboardLayout() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread'>('all');
-  const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; email: string; role: string; avatar?: string } | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -77,7 +87,13 @@ export function DashboardLayout() {
         if (!isSystemAdmin(data.role)) {
           throw new Error('Unauthorized');
         }
-        setUser(data);
+        let storedUser: { avatar?: string; name?: string; email?: string } = {};
+        try {
+          storedUser = JSON.parse(localStorage.getItem('vetintel_user') || '{}');
+        } catch {
+          storedUser = {};
+        }
+        setUser({ ...data, ...storedUser });
       })
       .catch(() => {
         localStorage.removeItem('vetintel_token');
@@ -85,6 +101,19 @@ export function DashboardLayout() {
         navigate('/login');
       });
   }, [navigate]);
+
+  useEffect(() => {
+    const refreshUser = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem('vetintel_user') || 'null');
+        if (stored) setUser(prev => ({ ...prev, ...stored }));
+      } catch {
+        // Keep the authenticated API user when local profile data is unavailable.
+      }
+    };
+    window.addEventListener('vetintel-user-updated', refreshUser);
+    return () => window.removeEventListener('vetintel-user-updated', refreshUser);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -134,31 +163,35 @@ export function DashboardLayout() {
     .join('')
     .toUpperCase()
     .slice(0, 2);
+  const activeNavigation = navigation.find(item =>
+    item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path),
+  );
+  const pageTitle = location.pathname === '/' ? 'Dashboard Overview' : activeNavigation?.name || 'Super Admin Portal';
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[#eef3ff] text-[#102956]">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-gray-900/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-[#081b3d]/55 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 border-r border-slate-800 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto flex flex-col ${
+        className={`fixed inset-y-0 left-0 z-50 w-52 bg-[#0b2045] border-r border-[#1e3d72] transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto flex flex-col ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-16 items-center justify-between px-6 border-b border-slate-700">
+        <div className="flex h-16 items-center justify-between px-4 border-b border-[#1e3d72]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-500/20 rounded-2xl flex items-center justify-center ring-1 ring-white/10">
-              <Building2 className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-[#2161e8] rounded-lg flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-white" />
             </div>
             <div>
-              <div className="font-semibold text-white">VetIntel</div>
-              <div className="text-xs text-slate-400">Super Admin</div>
+              <div className="font-semibold text-white text-sm">VetIntel</div>
+              <div className="text-[11px] text-[#7da2e2]">Super Admin</div>
             </div>
           </div>
           <button
@@ -169,7 +202,7 @@ export function DashboardLayout() {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
           {navigation.map((item) => {
             const isActive =
               item.path === '/'
@@ -180,10 +213,10 @@ export function DashboardLayout() {
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-3xl text-sm font-medium transition-all ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                   isActive
-                    ? 'bg-blue-600 text-white shadow-[0_10px_30px_-15px_rgba(59,130,246,0.35)]'
-                    : 'text-slate-300 hover:bg-white/20 hover:text-slate-900'
+                    ? 'bg-[#2161e8] text-white'
+                    : 'text-[#8eafe6] hover:bg-[#173564] hover:text-white'
                 }`}
               >
                 <item.icon className="w-5 h-5" />
@@ -193,20 +226,29 @@ export function DashboardLayout() {
           })}
         </nav>
 
-        <div className="border-t border-slate-700 px-3 py-4">
+        <div className="border-t border-[#1e3d72] px-2 py-3">
+          <div className="mb-3 flex items-center gap-3 rounded-lg bg-[#173564] px-3 py-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#2161e8]">
+              {user.avatar ? <img src={user.avatar} alt="" className="h-full w-full object-cover" /> : <span className="text-xs text-white">{initials}</span>}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-white">{user.name || 'Super Admin'}</p>
+              <p className="truncate text-[10px] text-[#4f9bff]">{user.email}</p>
+            </div>
+          </div>
           <Link
             to="/settings"
             onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-3 px-3 py-2 rounded-3xl text-sm font-medium text-slate-200 hover:bg-white hover:text-slate-900"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-[#8eafe6] hover:bg-[#173564] hover:text-white"
           >
-            <Settings className="w-5 h-5 text-slate-200" />
+            <Settings className="w-4 h-4 text-[#8eafe6]" />
             Settings
           </Link>
           <button
             onClick={handleLogout}
-            className="mt-2 w-full flex items-center gap-3 px-3 py-2 rounded-3xl text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-600"
+            className="mt-2 w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-[#8eafe6] hover:bg-[#173564] hover:text-white"
           >
-            <LogOut className="w-5 h-5 text-red-400" />
+            <LogOut className="w-4 h-4 text-[#8eafe6]" />
             Sign Out
           </button>
         </div>
@@ -215,7 +257,7 @@ export function DashboardLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top navigation */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+        <header className="h-14 bg-white border-b border-[#d4e1fb] flex items-center justify-between px-5">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden text-gray-600 hover:text-gray-900"
@@ -223,17 +265,7 @@ export function DashboardLayout() {
             <Menu className="w-6 h-6" />
           </button>
 
-          {/* Search bar */}
-          <div className="flex-1 max-w-lg mx-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search clinics, users, or settings..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
+          <div className="text-sm font-semibold text-[#102956]">{pageTitle}</div>
 
           {/* Right side actions */}
           <div className="flex items-center gap-4">
@@ -340,13 +372,9 @@ export function DashboardLayout() {
               )}
             </div>
 
-            <div className="relative pl-4 border-l border-gray-200 hidden md:flex items-center gap-3">
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
+            <div className="relative pl-4 border-l border-[#d4e1fb] hidden md:flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#2161e8] rounded-full flex items-center justify-center">
                 <span className="text-sm text-white">{initials}</span>
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-gray-900">{user.name || 'User'}</div>
-                <div className="text-xs text-gray-500">{user.email}</div>
               </div>
             </div>
           </div>

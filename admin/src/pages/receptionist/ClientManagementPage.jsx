@@ -92,7 +92,7 @@ export default function ClientManagementPage({ user }) {
       <div style={s.page}>
         <div style={s.statsGrid}>
           {[
-            { label: 'Total Clients', value: clients.length, icon: Icons.users, iconBg: '#eff6ff', iconColor: '#1d4ed8' },
+            { label: 'Total Clients', value: clients.length, icon: Icons.users, iconBg: '#e7f5f2', iconColor: '#07866a' },
             { label: 'Total Pets', value: totalPets, icon: Icons.pet, iconBg: '#f5f3ff', iconColor: '#7c3aed' },
             { label: 'New This Month', value: newThisMonth, icon: Icons.users, iconBg: '#fffbeb', iconColor: '#d97706' },
             { label: 'Searchable', value: 'Yes', icon: Icons.search, iconBg: '#f0fdf4', iconColor: '#16a34a' },
@@ -104,7 +104,7 @@ export default function ClientManagementPage({ user }) {
                 </div>
                 <div>
                   <div style={{ fontSize: '.7rem', color: '#64748b', fontWeight: 500 }}>{c.label}</div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.2 }}>{c.value}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.2 }}>{c.value}</div>
                 </div>
               </div>
             </div>
@@ -136,13 +136,13 @@ export default function ClientManagementPage({ user }) {
                       <td style={{ ...s.td, fontWeight: 600 }}>{client.name}</td>
                       <td style={s.tdMuted}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <span style={{ width: 12, height: 12, display: 'flex', color: '#94a3b8' }}>{Icons.mail}</span>
+                          <span style={{ width: 12, height: 12, display: 'flex', color: '#64748b' }}>{Icons.mail}</span>
                           {client.email || 'N/A'}
                         </div>
                       </td>
                       <td style={s.tdMuted}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <span style={{ width: 12, height: 12, display: 'flex', color: '#94a3b8' }}>{Icons.phone}</span>
+                          <span style={{ width: 12, height: 12, display: 'flex', color: '#64748b' }}>{Icons.phone}</span>
                           {client.phone || 'N/A'}
                         </div>
                       </td>
@@ -173,12 +173,12 @@ const s = {
   statCard: { background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: '16px 20px' },
   card: { background: '#fff', border: '1px solid #e8ecf0', borderRadius: 14, padding: '20px 24px' },
   searchWrap: { position: 'relative', marginBottom: 20 },
-  searchIcon: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#94a3b8', display: 'flex' },
+  searchIcon: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#64748b', display: 'flex' },
   search: { width: '100%', padding: '10px 14px 10px 36px', border: '1px solid #e8ecf0', borderRadius: 8, fontSize: '.82rem', background: '#f4f6f9', outline: 'none' },
   tableTitle: { fontSize: '.9rem', fontWeight: 600, color: '#0f1117', marginBottom: 16 },
   table: { width: '100%', borderCollapse: 'collapse' },
-  th: { textAlign: 'left', fontSize: '.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.06em', paddingBottom: 10, borderBottom: '1px solid #f1f5f9' },
+  th: { textAlign: 'left', fontSize: '.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.06em', paddingBottom: 10, borderBottom: '1px solid #f1f5f9' },
   td: { padding: '13px 0', fontSize: '.82rem', color: '#0f1117', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle' },
-  tdMuted: { padding: '13px 0', fontSize: '.82rem', color: '#94a3b8', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle' },
+  tdMuted: { padding: '13px 0', fontSize: '.82rem', color: '#64748b', borderBottom: '1px solid #f8fafc', verticalAlign: 'middle' },
   viewBtn: { display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: '#f8fafc', border: '1px solid #e8ecf0', borderRadius: 6, fontSize: '.75rem', color: '#0f1117', cursor: 'pointer' },
 };

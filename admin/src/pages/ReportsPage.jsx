@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Topbar from '../components/Topbar';
+import StatusIndicator from '../components/StatusIndicator';
 import { Icons } from '../icons';
 import { canViewFeature } from '../utils/permissionUtils';
 import { canExportFeature, canInteractWithFeature } from '../utils/permissionUtils';
@@ -67,9 +68,6 @@ const RECENT_REPORTS = [
   { name: 'Quarterly Intelligence Brief - Q1 2026',  type: 'PDF',  date: 'March 1, 2026',    size: '4.5 MB' },
 ];
 
-/* ── STATUS DOT ── */
-const STATUS_COLOR = { fresh: '#16a34a', stale: '#f59e0b', outdated: '#dc2626' };
-
 /* ── MAIN PAGE ── */
 export function ReportsPage({ user }) {
   const [reportType, setReportType] = useState('Disease Summary');
@@ -123,7 +121,7 @@ export function ReportsPage({ user }) {
               <div style={s.reportTitle}>{r.title}</div>
               <div style={s.reportDesc}>{r.desc}</div>
               <div style={s.reportMeta}>
-                <span style={{ ...s.statusDot, background: STATUS_COLOR[r.status] }} />
+                <StatusIndicator status={r.status} />
                 <span style={s.metaText}>Last generated: {r.lastGen}</span>
               </div>
               <div style={s.reportSize}>Size: {r.size}</div>
@@ -154,7 +152,7 @@ export function ReportsPage({ user }) {
               style={{
                 ...s.select,
                 background: canBuildCustomReport ? '#f4f6f9' : '#f8fafc',
-                color: canBuildCustomReport ? '#0f1117' : '#94a3b8',
+                color: canBuildCustomReport ? '#0f1117' : '#64748b',
                 cursor: canBuildCustomReport ? 'pointer' : 'not-allowed',
               }}
               value={reportType}
@@ -167,7 +165,7 @@ export function ReportsPage({ user }) {
               style={{
                 ...s.select,
                 background: canBuildCustomReport ? '#f4f6f9' : '#f8fafc',
-                color: canBuildCustomReport ? '#0f1117' : '#94a3b8',
+                color: canBuildCustomReport ? '#0f1117' : '#64748b',
                 cursor: canBuildCustomReport ? 'pointer' : 'not-allowed',
               }}
               value={disease}
@@ -180,7 +178,7 @@ export function ReportsPage({ user }) {
               style={{
                 ...s.select,
                 background: canBuildCustomReport ? '#f4f6f9' : '#f8fafc',
-                color: canBuildCustomReport ? '#0f1117' : '#94a3b8',
+                color: canBuildCustomReport ? '#0f1117' : '#64748b',
                 cursor: canBuildCustomReport ? 'pointer' : 'not-allowed',
               }}
               value={timeRange}
@@ -193,7 +191,7 @@ export function ReportsPage({ user }) {
               style={{
                 ...s.select,
                 background: canBuildCustomReport ? '#f4f6f9' : '#f8fafc',
-                color: canBuildCustomReport ? '#0f1117' : '#94a3b8',
+                color: canBuildCustomReport ? '#0f1117' : '#64748b',
                 cursor: canBuildCustomReport ? 'pointer' : 'not-allowed',
               }}
               value={format}
@@ -213,7 +211,7 @@ export function ReportsPage({ user }) {
               ...s.buildBtn,
               opacity: canBuildCustomReport ? 1 : 0.65,
               background: canBuildCustomReport ? '#0f1117' : '#f8fafc',
-              color: canBuildCustomReport ? '#fff' : '#94a3b8',
+              color: canBuildCustomReport ? '#fff' : '#64748b',
               border: canBuildCustomReport ? 'none' : '1px solid #cbd5e1',
               cursor: canBuildCustomReport ? 'pointer' : 'not-allowed',
             }}
@@ -240,7 +238,7 @@ export function ReportsPage({ user }) {
               <div style={s.td}>
                 <span style={{
                   ...s.typeBadge,
-                  background: r.type === 'PDF' ? '#0f1117' : '#3b82f6',
+                  background: r.type === 'PDF' ? '#0f1117' : '#139b76',
                 }}>
                   {r.type}
                 </span>
@@ -321,7 +319,7 @@ const s = {
   reportMeta:  { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 },
   statusDot:   { width: 7, height: 7, borderRadius: '50%', flexShrink: 0 },
   metaText:    { fontSize: '.72rem', color: '#64748b' },
-  reportSize:  { fontSize: '.7rem', color: '#94a3b8', marginBottom: 14 },
+  reportSize:  { fontSize: '.7rem', color: '#64748b', marginBottom: 14 },
   generateBtn: {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
     padding: '9px 0', background: '#fff',
@@ -335,7 +333,7 @@ const s = {
     borderRadius: 14, padding: '20px 22px', marginBottom: 16,
   },
   cardTitle: { fontSize: '.88rem', fontWeight: 600, color: '#0f1117', letterSpacing: '-.01em', marginBottom: 4 },
-  cardDesc:  { fontSize: '.73rem', color: '#94a3b8', marginBottom: 18 },
+  cardDesc:  { fontSize: '.73rem', color: '#64748b', marginBottom: 18 },
 
   builderRow: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' },
   select: {
@@ -348,7 +346,7 @@ const s = {
     background: '#f4f6f9', border: '1px solid #e8ecf0',
     borderRadius: 8, padding: '12px 16px', marginBottom: 14,
   },
-  previewLabel: { fontSize: '.7rem', fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.05em' },
+  previewLabel: { fontSize: '.7rem', fontWeight: 600, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.05em' },
   previewText:  { fontSize: '.82rem', color: '#64748b' },
   buildBtn: {
     width: '100%', padding: '11px 0',
@@ -361,7 +359,7 @@ const s = {
     display: 'grid', gridTemplateColumns: '1fr 80px 160px 100px 100px',
     paddingBottom: 10, borderBottom: '1px solid #f1f5f9', gap: 12,
   },
-  th: { fontSize: '.72rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.04em' },
+  th: { fontSize: '.72rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.04em' },
   tableRow: {
     display: 'grid', gridTemplateColumns: '1fr 80px 160px 100px 100px',
     padding: '14px 0', alignItems: 'center', gap: 12,

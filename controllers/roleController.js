@@ -17,6 +17,17 @@ const roleSynonymMap = new Map([
 
 const canonicalRoleNames = new Set(['clinic_owner', 'doctor', 'receptionist', 'super_admin']);
 
+function parsePermissions(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    console.error('Invalid role permissions JSON:', error);
+    return {};
+  }
+}
+
 function normalizeRoleName(name) {
   if (!name) return '';
   return name.trim();
@@ -87,7 +98,7 @@ exports.list = async (req, res, next) => {
     // Parse permissions JSON if stored as string
     const roles = result.rows.map(role => ({
       ...role,
-      permissions: typeof role.permissions === 'string' ? JSON.parse(role.permissions) : role.permissions
+      permissions: parsePermissions(role.permissions)
     }));
     
     const dedupedRoles = dedupeRoles(roles);
@@ -112,7 +123,7 @@ exports.getById = async (req, res, next) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Role not found' });
     
     const role = result.rows[0];
-    role.permissions = typeof role.permissions === 'string' ? JSON.parse(role.permissions) : role.permissions;
+    role.permissions = parsePermissions(role.permissions);
     res.json(role);
   } catch (e) {
     next(e);
@@ -152,7 +163,7 @@ exports.create = async (req, res, next) => {
     }
     
     const role = result.rows[0];
-    role.permissions = typeof role.permissions === 'string' ? JSON.parse(role.permissions) : role.permissions;
+    role.permissions = parsePermissions(role.permissions);
     // audit
     const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
     audit.logAudit({
@@ -221,7 +232,7 @@ const nameChanged = name && roleCanonicalKey(before.rows[0].name) !== roleCanoni
     if (result.rows.length === 0) return res.status(404).json({ error: 'Role not found' });
     
     const role = result.rows[0];
-    role.permissions = typeof role.permissions === 'string' ? JSON.parse(role.permissions) : role.permissions;
+    role.permissions = parsePermissions(role.permissions);
     // audit
     const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
     audit.logAudit({

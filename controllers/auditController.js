@@ -31,7 +31,15 @@ exports.list = async (req, res, next) => {
         clinic,
         category: row.table_name,
         timestamp: row.created_at,
+        ip_address: row.ip_address,
+        record_id: row.record_id,
+        old_data: oldData,
+        new_data: newData,
         severity: 'info',
+        role: newData._audit?.role || null,
+        reason: newData._audit?.reason || null,
+        previousValue: oldData.status ?? oldData.value ?? null,
+        newValue: newData.status ?? newData.value ?? null,
       };
     });
 
@@ -43,7 +51,7 @@ exports.list = async (req, res, next) => {
 
 exports.getByFilter = async (req, res, next) => {
   try {
-    const { user_id, action, table_name, days } = req.query;
+    const { user_id, action, table_name, days, clinic_id } = req.query;
         let query = `
           SELECT a.id, a.user_id, a.action, a.table_name, a.record_id, a.old_data, a.new_data, a.ip_address, a.created_at,
             u.name, u.email
@@ -71,6 +79,12 @@ exports.getByFilter = async (req, res, next) => {
       params.push(table_name);
     }
 
+    if (clinic_id) {
+      paramCount++;
+      query += ` AND (a.new_data->>'clinic_id' = $${paramCount} OR a.old_data->>'clinic_id' = $${paramCount})`;
+      params.push(String(clinic_id));
+    }
+
     if (days) {
       query += ` AND a.created_at > now() - interval '${parseInt(days, 10)} days'`;
     }
@@ -93,7 +107,15 @@ exports.getByFilter = async (req, res, next) => {
         clinic,
         category: row.table_name,
         timestamp: row.created_at,
+        ip_address: row.ip_address,
+        record_id: row.record_id,
+        old_data: oldData,
+        new_data: newData,
         severity: 'info',
+        role: newData._audit?.role || null,
+        reason: newData._audit?.reason || null,
+        previousValue: oldData.status ?? oldData.value ?? null,
+        newValue: newData.status ?? newData.value ?? null,
       };
     });
 
@@ -105,14 +127,24 @@ exports.getByFilter = async (req, res, next) => {
 
 exports.create = async (req, res, next) => {
   try {
-    const { user_id, action, table_name, record_id, old_data, new_data } = req.body;
+    const { action, table_name, record_id, old_data, new_data, reason } = req.body;
     const ip_address = req.ip || req.connection.remoteAddress;
+    const user_id = req.user && req.user.id ? req.user.id : null;
+    const auditData = {
+      ...(new_data || {}),
+      _audit: {
+        user_id,
+        role: req.user && req.user.role,
+        recorded_at: new Date().toISOString(),
+        ...(reason ? { reason: String(reason).trim() } : {}),
+      },
+    };
 
     const result = await db.query(
       `INSERT INTO audit_trail (user_id, action, table_name, record_id, old_data, new_data, ip_address)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, user_id, action, table_name, record_id, old_data, new_data, ip_address, created_at`,
-      [user_id, action, table_name, record_id, JSON.stringify(old_data || {}), JSON.stringify(new_data || {}), ip_address]
+      [user_id, action, table_name, record_id, JSON.stringify(old_data || {}), JSON.stringify(auditData), ip_address]
     );
     res.status(201).json(result.rows[0]);
   } catch (e) {

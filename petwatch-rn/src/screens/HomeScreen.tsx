@@ -6,7 +6,16 @@ import { differenceInDays, parseISO } from 'date-fns';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { colors, spacing, radius } from '../theme/colors';
-import { petsApi, appointmentsApi, alertsApi } from '../services/api';
+import { petsApi, appointmentsApi, alertsApi, ownerSharedRecordsApi } from '../services/api';
+
+type SharedRecordBundle = {
+  id: string;
+  petName: string;
+  clinicName: string;
+  createdAt: string;
+  message?: string;
+  records: { id: string; category: string; title: string; detail: string; date?: string }[];
+};
 
 const DOG_IMG = 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200&q=80';
 const CAT_IMG = 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&q=80';
@@ -19,6 +28,8 @@ export default function HomeScreen({ navigation }: any) {
   const [pets, setPets] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [sharedRecordBundles, setSharedRecordBundles] = useState<SharedRecordBundle[]>([]);
+  const [sharedRecordsError, setSharedRecordsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +44,7 @@ export default function HomeScreen({ navigation }: any) {
     setError(null);
     try {
       // Fetch all data in parallel
-      const [petsData, alertsData, appointmentsData] = await Promise.all([
+      const [petsData, alertsData, appointmentsData, sharedRecordsData] = await Promise.all([
         petsApi.list(token!).catch(err => {
           console.error('Error fetching pets:', err);
           return [];
@@ -46,11 +57,21 @@ export default function HomeScreen({ navigation }: any) {
           console.error('Error fetching appointments:', err);
           return [];
         }),
+        ownerSharedRecordsApi.list(token!).then((data: SharedRecordBundle[]) => {
+          if (!Array.isArray(data)) throw new Error('The shared records response was not valid.');
+          setSharedRecordsError('');
+          return data;
+        }).catch(err => {
+          console.error('Error fetching owner-shared records:', err);
+          setSharedRecordsError(err.message || 'Unable to load records shared by your clinic.');
+          return [];
+        }),
       ]);
 
       setPets(Array.isArray(petsData) ? petsData : []);
       setAlerts(Array.isArray(alertsData) ? alertsData : []);
       setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
+      setSharedRecordBundles(sharedRecordsData);
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
       console.error('Error loading home data:', err);
@@ -130,6 +151,34 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Shared by your clinic</Text>
+          {sharedRecordsError ? <TouchableOpacity onPress={loadData}><Text style={s.sharedRetry}>Retry</Text></TouchableOpacity> : null}
+        </View>
+        {sharedRecordsError ? (
+          <View style={s.sharedEmpty}><Text style={s.sharedHint}>{sharedRecordsError}</Text></View>
+        ) : sharedRecordBundles.length ? (
+          sharedRecordBundles.map(bundle => (
+            <View key={bundle.id} style={s.sharedBundle}>
+              <Text style={s.sharedClinic}>{bundle.petName} · {bundle.clinicName}</Text>
+              <Text style={s.sharedDate}>{new Date(bundle.createdAt).toLocaleDateString()}</Text>
+              {bundle.message ? <Text style={s.sharedMessage}>{bundle.message}</Text> : null}
+              {bundle.records.map(item => (
+                <View key={item.id} style={s.sharedRecord}>
+                  <Text style={s.sharedCategory}>{item.category}</Text>
+                  <Text style={s.sharedRecordTitle}>{item.title}</Text>
+                  {item.detail ? <Text style={s.sharedHint}>{item.detail}</Text> : null}
+                  {item.date ? <Text style={s.sharedDate}>{new Date(item.date).toLocaleDateString()}</Text> : null}
+                </View>
+              ))}
+            </View>
+          ))
+        ) : (
+          <View style={s.sharedEmpty}>
+            <Text style={s.sharedHint}>Records your clinic chooses to share will appear here.</Text>
+          </View>
+        )}
+
+        <View style={s.sectionHeader}>
           <Text style={s.sectionTitle}>Your Pets</Text>
           <TouchableOpacity style={s.addBtn} onPress={() => navigation.navigate('AddPet')}>
             <Ionicons name="add" size={16} color={colors.primary} /><Text style={s.addBtnText}>Add Pet</Text>
@@ -197,6 +246,16 @@ const styles = (tc: any, isDark: boolean) => StyleSheet.create({
   linkSub: { fontSize: 12, color: tc.textSecondary },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: tc.text },
+  sharedRetry: { color: colors.primary, fontSize: 13, fontWeight: '600' },
+  sharedBundle: { padding: 14, marginBottom: 10, borderWidth: 1, borderColor: tc.border, borderRadius: radius.lg, backgroundColor: tc.surface },
+  sharedClinic: { color: tc.text, fontSize: 14, fontWeight: '700' },
+  sharedDate: { marginTop: 3, color: tc.textMuted, fontSize: 11 },
+  sharedMessage: { marginTop: 8, color: tc.textSecondary, fontSize: 13, lineHeight: 18 },
+  sharedRecord: { paddingVertical: 9, borderTopWidth: 1, borderTopColor: tc.border, marginTop: 7 },
+  sharedCategory: { marginBottom: 2, color: colors.primary, fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
+  sharedRecordTitle: { color: tc.text, fontSize: 14, fontWeight: '600' },
+  sharedHint: { marginTop: 3, color: tc.textSecondary, fontSize: 12, lineHeight: 17 },
+  sharedEmpty: { padding: 14, marginBottom: 16, borderWidth: 1, borderColor: tc.border, borderRadius: radius.lg, backgroundColor: tc.surface },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: tc.border, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 6 },
   addBtnText: { fontSize: 13, color: colors.primary, fontWeight: '500' },
   petCard: { backgroundColor: tc.surface, borderRadius: radius.lg, padding: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: tc.border },

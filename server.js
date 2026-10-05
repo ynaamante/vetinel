@@ -9,13 +9,17 @@ const apiRoutes = require('./routes/api');
 dotenv.config();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '6mb' }));
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
+    const isOwnerRecordShare = req.originalUrl.includes('/clinic-records/shareable-records');
+    const isPetPhotoUpload = /^\/api\/clinic-records\/pets\/\d+\/photo(?:\?|$)/.test(req.originalUrl);
     const bodyPreview = ['POST', 'PUT', 'PATCH'].includes(req.method) && req.body && Object.keys(req.body).length
-      ? ` body=${JSON.stringify(req.body)}`
+      ? isOwnerRecordShare || isPetPhotoUpload
+        ? ` body=[${isPetPhotoUpload ? 'pet photo' : 'owner record-sharing content'} omitted]`
+        : ` body=${JSON.stringify(req.body)}`
       : '';
     console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms${bodyPreview}`);
   });
@@ -26,7 +30,7 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
     return res.sendStatus(204);
   }
   next();
@@ -43,7 +47,24 @@ function stripDatabaseCommands(sql) {
 }
 
 async function runMigrations() {
-  const schemaPath = path.join(__dirname, 'Vetinel.sql');
+  const schemaCandidates = [
+    path.join(__dirname, 'Vetinel.sql'),
+    path.join(__dirname, 'Vetinel_schema.sql'),
+  ];
+  let schemaPath = null;
+  for (const candidate of schemaCandidates) {
+    try {
+      await fs.access(candidate);
+      schemaPath = candidate;
+      break;
+    } catch {
+      // Try the next supported schema filename.
+    }
+  }
+  if (!schemaPath) {
+    console.log('No supported schema file found; skipping startup schema execution.');
+    return;
+  }
   let sql;
   try {
     sql = await fs.readFile(schemaPath, 'utf8');
@@ -65,6 +86,12 @@ async function runMigrations() {
   }
   if (!sanitizedSql.trim()) {
     console.log('Root schema file contains only database bootstrap commands; skipping execution.');
+    return;
+  }
+
+  const existingUsersTable = await db.query("SELECT to_regclass('public.users') AS table_name");
+  if (existingUsersTable.rows[0]?.table_name) {
+    console.log('Database schema already exists; skipping startup schema execution.');
     return;
   }
 
@@ -237,6 +264,178 @@ async function ensureClinicsSchema() {
   }
 }
 
+async function ensureClinicRecordArchiveSchema() {
+  for (const tableName of ['appointments', 'vaccinations', 'prescriptions']) {
+    const result = await db.query(
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = $1 AND column_name = 'archived'`,
+      [tableName]
+    );
+    if (!result.rows.length) {
+      await db.query(`ALTER TABLE ${tableName} ADD COLUMN archived BOOLEAN DEFAULT false`);
+      console.log(`Added ${tableName}.archived column`);
+    }
+  }
+}
+
+async function ensureVaccinationSchema() {
+  await db.query(`
+    ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS manufacturer TEXT;
+    ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS expiry_date DATE;
+    ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS dose TEXT;
+    ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS verified_by INTEGER;
+    ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+    ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS verification_reason TEXT;
+    ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS sticker_attachment_id INTEGER;
+  `);
+}
+
+async function ensureConsultationSchema() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS consultations (
+      id SERIAL PRIMARY KEY,
+      clinic_id INTEGER NOT NULL,
+      appointment_id INTEGER NOT NULL UNIQUE,
+      pet_id INTEGER,
+      doctor_id INTEGER,
+      status TEXT NOT NULL DEFAULT 'in_progress',
+      notes JSONB NOT NULL DEFAULT '{}'::jsonb,
+      owner_visible BOOLEAN NOT NULL DEFAULT false,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      completed_at TIMESTAMPTZ,
+      completed_by INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS consultations_clinic_status_idx
+      ON consultations (clinic_id, status);
+  `);
+}
+
+async function ensureTransferSchema() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS appointment_transfers (
+      id SERIAL PRIMARY KEY,
+      clinic_id INTEGER NOT NULL,
+      appointment_id INTEGER NOT NULL,
+      pet_id INTEGER,
+      from_doctor_id INTEGER,
+      to_doctor_id INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      urgency TEXT NOT NULL DEFAULT 'routine',
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'accepted',
+      created_by INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS appointment_transfers_appointment_idx
+      ON appointment_transfers (appointment_id, created_at DESC);
+  `);
+}
+
+async function ensureAppointmentWorkflowSchema() {
+  await db.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'appointment_status') THEN
+        ALTER TYPE appointment_status ADD VALUE IF NOT EXISTS 'rescheduled';
+      END IF;
+    END $$;
+    ALTER TABLE appointments ADD COLUMN IF NOT EXISTS parent_appointment_id INTEGER REFERENCES appointments(id);
+    ALTER TABLE appointments ADD COLUMN IF NOT EXISTS workflow_type TEXT;
+    ALTER TABLE appointments ADD COLUMN IF NOT EXISTS workflow_reason TEXT;
+    ALTER TABLE appointments ADD COLUMN IF NOT EXISTS original_start_time TIMESTAMPTZ;
+    CREATE INDEX IF NOT EXISTS appointments_parent_workflow_idx
+      ON appointments (parent_appointment_id, created_at DESC)
+      WHERE parent_appointment_id IS NOT NULL;
+  `);
+}
+
+// These tables back the static Super Admin surfaces. Keep this migration additive:
+// IF NOT EXISTS means an existing installation (and its data) is never replaced.
+async function ensureAdminSurfaceSchema() {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS role_requests (
+        id SERIAL PRIMARY KEY,
+        clinic_id INTEGER,
+        clinic_name TEXT NOT NULL,
+        requested_role TEXT NOT NULL,
+        requested_users INTEGER DEFAULT 1,
+        reason TEXT,
+        status TEXT NOT NULL DEFAULT 'Pending',
+        submitted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        reviewed_by INTEGER,
+        reviewed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS subscription_plans (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        price TEXT,
+        staff_limit INTEGER,
+        features JSONB NOT NULL DEFAULT '[]'::jsonb,
+        billing_cycle TEXT NOT NULL DEFAULT 'monthly',
+        active BOOLEAN NOT NULL DEFAULT true,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS demo_requests (
+        id SERIAL PRIMARY KEY,
+        clinic_id INTEGER,
+        clinic_name TEXT NOT NULL,
+        contact_name TEXT,
+        phone TEXT,
+        email TEXT,
+        staff_count INTEGER,
+        preferred_date DATE,
+        preferred_time TEXT,
+        address TEXT,
+        notes TEXT,
+        status TEXT NOT NULL DEFAULT 'New',
+        submitted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        assigned_representative TEXT,
+        meeting_link TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        sender_id INTEGER,
+        sender_name TEXT,
+        sender_email TEXT,
+        audience TEXT,
+        subject TEXT NOT NULL,
+        body TEXT NOT NULL,
+        is_read BOOLEAN NOT NULL DEFAULT false,
+        read_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS message_replies (
+        id SERIAL PRIMARY KEY,
+        message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        author_id INTEGER,
+        body TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS role_requests_status_idx ON role_requests(status);
+      CREATE INDEX IF NOT EXISTS demo_requests_status_idx ON demo_requests(status);
+      CREATE INDEX IF NOT EXISTS messages_read_idx ON messages(is_read);
+    `);
+}
+
+async function ensureUserSecuritySchema() {
+  await db.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS temporary_password_sent_at TIMESTAMPTZ;
+  `);
+}
+
 async function seedSuperAdmin() {
   const adminEmail = process.env.SUPERADMIN_EMAIL;
   const adminPassword = process.env.SUPERADMIN_PASSWORD;
@@ -297,6 +496,13 @@ const port = process.env.PORT || 3000;
     await ensureAnnouncementSchema();
     await ensureAuditSchema();
     await ensureClinicsSchema();
+    await ensureClinicRecordArchiveSchema();
+    await ensureVaccinationSchema();
+    await ensureConsultationSchema();
+    await ensureTransferSchema();
+    await ensureAppointmentWorkflowSchema();
+    await ensureAdminSurfaceSchema();
+    await ensureUserSecuritySchema();
     // Optionally run a one-time normalizer to dedupe roles if explicitly requested via env var.
     await runOptionalRoleNormalizer();
     await seedSuperAdmin();

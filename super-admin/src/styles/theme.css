@@ -180,3 +180,26 @@
     line-height: 1.5;
   }
 }
+
+body {
+  font-family: 'DM Sans', 'Segoe UI', sans-serif;
+  color: #102956;
+}
+
+.text-xs {
+  font-size: 0.8125rem;
+  line-height: 1.2rem;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+input,
+select,
+textarea {
+  border-color: #cbdcfb;
+}

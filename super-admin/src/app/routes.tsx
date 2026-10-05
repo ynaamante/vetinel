@@ -9,6 +9,7 @@ import { Settings } from "./components/pages/Settings";
 import { ClinicDetails } from "./components/pages/ClinicDetails";
 import { Login } from "./components/pages/Login";
 import { SystemAnnouncements } from "./components/pages/SystemAnnouncements";
+import { ActiveClinics, DemoRequests, Inbox, PlatformReports, RoleRequests, SubscriptionPlans } from "./components/pages/ReferenceScreens";
 import { isSystemAdmin } from "../utils/permissionUtils";
 
 // Protected Route Component
@@ -55,9 +56,15 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: Dashboard },
       { path: "clinics", Component: ClinicManagement },
+      { path: "active-clinics", Component: ActiveClinics },
       { path: "clinics/:id", Component: ClinicDetails },
       { path: "users", Component: UserManagement },
         { path: "announcements", Component: SystemAnnouncements },
+      { path: "role-requests", Component: RoleRequests },
+      { path: "subscription-plans", Component: SubscriptionPlans },
+      { path: "demo-requests", Component: DemoRequests },
+      { path: "reports", Component: PlatformReports },
+      { path: "inbox", Component: Inbox },
       { path: "roles", Component: RolesPermissions },
       { path: "audit", Component: AuditTrail },
       { path: "settings", Component: Settings },

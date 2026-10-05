@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Building2, Eye, EyeOff } from 'lucide-react';
+import { Activity, Eye, EyeOff } from 'lucide-react';
 
 export function Login() {
   const navigate = useNavigate();
@@ -41,45 +41,44 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-[#172b5c] via-[#1d3f93] to-[#2459d4] flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
         {/* Logo and Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
-            <Building2 className="w-10 h-10 text-white" />
+        <div className="bg-white rounded-xl shadow-2xl px-8 py-7">
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <div className="flex items-center justify-center w-9 h-9 bg-[#2161e8] rounded-lg">
+              <Activity className="w-5 h-5 text-white" />
+            </div>
+            <div className="text-left">
+              <div className="text-base font-semibold text-[#102956]">VetIntel</div>
+              <div className="text-[11px] text-[#7995c9]">Super Admin Portal</div>
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">VetIntel</h1>
-          <p className="text-gray-600 mt-2">Super Admin Portal</p>
-        </div>
-
-        {/* Login Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6">
-            Sign In
-          </h2>
+          <h2 className="text-lg font-semibold text-[#101b33] text-center mb-1">Sign In</h2>
+          <p className="text-xs text-[#a3b9e1] text-center mb-7">Access the platform administration center</p>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
+              <p className="text-xs text-red-600">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-medium text-[#46649a] mb-1.5">
                 Email Address
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 border border-[#cbdcfb] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="admin@vetintel.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-medium text-[#46649a] mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -87,7 +86,7 @@ export function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                  className="w-full px-3 py-2.5 border border-[#cbdcfb] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
                   placeholder="Enter your password"
                 />
                 <button
@@ -110,31 +109,27 @@ export function Login() {
                   type="checkbox"
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
+                <span className="ml-2 text-xs text-[#6684b9]">Remember me</span>
               </label>
-              <a href="#" className="text-sm text-blue-600 hover:text-blue-700">
+              <a href="#" className="text-xs text-[#2161e8] hover:text-blue-700">
                 Forgot password?
               </a>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium transition-colors"
+              className="w-full bg-[#2161e8] text-white py-2.5 rounded-lg hover:bg-blue-700 text-xs font-semibold transition-colors shadow-[0_8px_18px_-10px_rgba(33,97,232,.9)]"
             >
               Sign In
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">
-              Demo credentials: admin@vetintel.com / admin123
+            <p className="text-[10px] text-[#b3c5e7]">
+              VetIntel Platform v2.4.1 · Restricted Access
             </p>
           </div>
         </div>
-
-        <p className="text-center text-sm text-gray-600 mt-6">
-          © 2026 VetIntel. All rights reserved.
-        </p>
       </div>
     </div>
   );

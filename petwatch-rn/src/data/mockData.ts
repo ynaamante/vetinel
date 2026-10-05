@@ -1,5 +1,5 @@
 export interface Pet { id: string; name: string; species: 'dog'|'cat'|'other'; breed: string; age: number; weight: number; color: string; lastDewormingDate?: string; nextDewormingDate?: string; }
-export interface Vaccination { id: string; petId: string; vaccine: string; date: string; nextDue: string; status: 'completed'|'upcoming'|'overdue'; }
+export interface Vaccination { id: string; petId: string; vaccine: string; date: string; nextDue: string; status: 'completed'|'upcoming'|'overdue'; vetName?: string; notes?: string; }
 export interface Symptom { id: string; petId: string; symptoms: string[]; severity: 'low'|'moderate'|'high'; description: string; date: string; riskLevel: 'low'|'moderate'|'high'; }
 export interface Appointment { id: string; petId: string; petName: string; date: string; time: string; type: string; vetName: string; status: 'upcoming'|'completed'|'cancelled'; clinicId?: string; clinicName?: string; }
 export interface Alert { id: string; title: string; message: string; severity: 'low'|'moderate'|'high'; date: string; read: boolean; type: 'outbreak'|'vaccination'|'appointment'|'symptom'|'deworming'; }

@@ -143,13 +143,10 @@ export function SystemAnnouncements() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-5 space-y-5 bg-[#eef3ff] min-h-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            System Announcements
-          </h1>
           <p className="text-sm text-gray-500 mt-1">
             Manage platform-wide announcements and notifications
           </p>

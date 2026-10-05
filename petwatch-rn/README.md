@@ -55,6 +55,29 @@ npm start
 
 This will launch the Expo CLI with a QR code for your mobile device.
 
+### Connect a Physical Device to the Backend
+
+Expo's tunnel exposes the Metro development server so your phone can load the app. It does not expose the backend API. To use API features from a physical device, start the backend and expose its port separately with ngrok:
+
+```bash
+# In the repository root, with the backend running on port 3000:
+ngrok http 3000
+```
+
+Copy the HTTPS forwarding URL printed by ngrok, then create `petwatch-rn/.env`:
+
+```env
+EXPO_PUBLIC_API_URL=https://your-backend-tunnel.ngrok-free.app/api
+```
+
+Replace the example URL with your actual ngrok URL and keep the `/api` suffix. Restart Expo after changing the environment file, then start the app tunnel:
+
+```bash
+npx expo start --tunnel
+```
+
+For local web or iOS simulator development, the API URL defaults to `http://localhost:3000/api`. Android emulators typically need `http://10.0.2.2:3000/api`. A physical phone cannot use the computer's `localhost` address to reach the backend.
+
 ### Run on Android
 
 ```bash
@@ -226,4 +249,3 @@ The ".expo" folder is created when an Expo project is started using "expo start"
 > Should I commit the ".expo" folder?
 No, you should not share the ".expo" folder. It does not contain any information that is relevant for other developers working on the project, it is specific to your machine.
 Upon project creation, the ".expo" folder is already added to your ".gitignore" file.
-

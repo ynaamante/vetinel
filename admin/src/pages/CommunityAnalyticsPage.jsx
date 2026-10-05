@@ -156,13 +156,13 @@ export function CommunityAnalyticsPage({ user }) {
             <AreaChart data={VACC_TREND}>
               <defs>
                 <linearGradient id="vaccGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.18} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+                  <stop offset="5%"  stopColor="#139b76" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#139b76" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#b8c4d3" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
               <Tooltip content={<ChartTooltip suffix="%" />} />
               <ReferenceLine
                 y={70} stroke="#fca5a5" strokeDasharray="5 4"
@@ -170,9 +170,9 @@ export function CommunityAnalyticsPage({ user }) {
               />
               <Area
                 type="monotone" dataKey="rate"
-                stroke="#3b82f6" strokeWidth={2}
+                stroke="#139b76" strokeWidth={2}
                 fill="url(#vaccGrad)"
-                dot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }}
+                dot={{ r: 4, fill: '#139b76', strokeWidth: 0 }}
                 activeDot={{ r: 6 }}
               />
             </AreaChart>
@@ -197,9 +197,9 @@ export function CommunityAnalyticsPage({ user }) {
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={SPREAD_COEFF}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 4]} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#b8c4d3" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 4]} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
               <Tooltip content={<ChartTooltip />} />
               <ReferenceLine
                 y={2} stroke="#4ade80" strokeDasharray="5 4"
@@ -231,9 +231,9 @@ export function CommunityAnalyticsPage({ user }) {
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={AVG_RISK}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#b8c4d3" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
               <Tooltip content={<ChartTooltip />} />
               <Line
                 type="monotone" dataKey="score"
@@ -276,7 +276,7 @@ export function CommunityAnalyticsPage({ user }) {
             <div style={s.accordionHd} onClick={() => setOpenMonth(openMonth === report.month ? null : report.month)}>
               <span style={s.accordionTitle}>{report.month}</span>
               <span style={{
-                width: 16, height: 16, display: 'flex', color: '#94a3b8',
+                width: 16, height: 16, display: 'flex', color: '#64748b',
                 transform: openMonth === report.month ? 'rotate(180deg)' : 'none',
                 transition: 'transform .2s',
               }}>
@@ -335,7 +335,7 @@ const s = {
     borderRadius: 14, padding: '20px 22px',
   },
   statLabel: { fontSize: '.78rem', color: '#64748b', marginBottom: 10 },
-  statVal:   { fontFamily: "'Syne', sans-serif", fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-.03em' },
+  statVal:   { fontFamily: "'DM Sans', sans-serif", fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-.03em' },
 
   card: {
     background: '#fff', border: '1px solid #e8ecf0',
@@ -346,7 +346,7 @@ const s = {
     justifyContent: 'space-between', marginBottom: 16, gap: 12,
   },
   cardTitle: { fontSize: '.88rem', fontWeight: 600, color: '#0f1117', letterSpacing: '-.01em' },
-  cardDesc:  { fontSize: '.7rem', color: '#94a3b8', marginTop: 3, lineHeight: 1.5 },
+  cardDesc:  { fontSize: '.7rem', color: '#64748b', marginTop: 3, lineHeight: 1.5 },
 
   warningBanner: {
     display: 'flex', alignItems: 'center', gap: 8,
@@ -367,7 +367,7 @@ const s = {
   },
   insightTitle:       { fontSize: '.85rem', fontWeight: 600, color: '#0f1117', marginBottom: 8 },
   insightDesc:        { fontSize: '.77rem', color: '#64748b', lineHeight: 1.55, marginBottom: 14 },
-  insightActionLabel: { fontSize: '.72rem', fontWeight: 600, color: '#94a3b8', marginBottom: 4 },
+  insightActionLabel: { fontSize: '.72rem', fontWeight: 600, color: '#64748b', marginBottom: 4 },
   insightAction:      { fontSize: '.77rem', color: '#64748b', lineHeight: 1.5 },
 
   accordion: {
@@ -382,8 +382,8 @@ const s = {
   accordionBody:  { padding: '4px 20px 20px', borderTop: '1px solid #f1f5f9' },
   metricsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginTop: 16 },
   metricItem:  {},
-  metricLabel: { fontSize: '.72rem', color: '#94a3b8', marginBottom: 6 },
-  metricVal:   { fontFamily: "'Syne', sans-serif", fontSize: '1.4rem', fontWeight: 700, color: '#0f1117', letterSpacing: '-.02em' },
+  metricLabel: { fontSize: '.72rem', color: '#64748b', marginBottom: 6 },
+  metricVal:   { fontFamily: "'DM Sans', sans-serif", fontSize: '1.4rem', fontWeight: 700, color: '#0f1117', letterSpacing: '-.02em' },
   metricChange:{ fontSize: '.72rem', marginTop: 4 },
 };
 

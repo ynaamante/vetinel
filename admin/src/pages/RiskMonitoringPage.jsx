@@ -176,9 +176,9 @@ export function RiskMonitoringPage({ user }) {
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={SCORE_DIST} barSize={60}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#b8c4d3" />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
               <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(0,0,0,.03)' }} />
               <Bar dataKey="value" radius={[5, 5, 0, 0]}>
                 {SCORE_DIST.map((d, i) => <Cell key={i} fill={d.color} />)}
@@ -207,8 +207,8 @@ export function RiskMonitoringPage({ user }) {
           <div style={{ marginTop: 16 }}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={CLINIC_RISK} layout="vertical" barSize={18} barCategoryGap={14}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#b8c4d3" />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} width={78} />
                 <Tooltip content={<StackedTooltip />} cursor={{ fill: 'rgba(0,0,0,.03)' }} />
                 <Legend
@@ -235,11 +235,11 @@ export function RiskMonitoringPage({ user }) {
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={RISK_FACTORS} layout="vertical" barSize={20} barCategoryGap={10}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#b8c4d3" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
               <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} width={120} />
               <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(0,0,0,.03)' }} />
-              <Bar dataKey="value" radius={[0, 5, 5, 0]} fill="#3b82f6" />
+              <Bar dataKey="value" radius={[0, 5, 5, 0]} fill="#139b76" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -271,7 +271,7 @@ export function RiskMonitoringPage({ user }) {
           </div>
           {/* Privacy note */}
           <div style={s.privacyNote}>
-            <span style={{ width: 14, height: 14, display: 'flex', color: '#3b82f6', flexShrink: 0 }}>{Icons.activity}</span>
+            <span style={{ width: 14, height: 14, display: 'flex', color: '#139b76', flexShrink: 0 }}>{Icons.activity}</span>
             <span style={{ fontSize: '.72rem', color: '#64748b' }}>
               All data shown is anonymized and aggregated. No individual patient or owner identifiers are displayed or transmitted.
             </span>
@@ -305,8 +305,8 @@ const s = {
     borderRadius: 14, padding: '20px 22px',
   },
   statLabel: { fontSize: '.78rem', color: '#64748b', marginBottom: 10 },
-  statVal:   { fontFamily: "'Syne', sans-serif", fontSize: '2rem', fontWeight: 700, letterSpacing: '-.03em' },
-  statSub:   { fontSize: '.72rem', color: '#94a3b8', marginTop: 4 },
+  statVal:   { fontFamily: "'DM Sans', sans-serif", fontSize: '2rem', fontWeight: 700, letterSpacing: '-.03em' },
+  statSub:   { fontSize: '.72rem', color: '#64748b', marginTop: 4 },
 
   filterBar: {
     display: 'flex', alignItems: 'center',
@@ -329,7 +329,7 @@ const s = {
     justifyContent: 'space-between', marginBottom: 16, gap: 12,
   },
   cardTitle: { fontSize: '.88rem', fontWeight: 600, color: '#0f1117', letterSpacing: '-.01em' },
-  cardDesc:  { fontSize: '.7rem', color: '#94a3b8', marginTop: 3, lineHeight: 1.5 },
+  cardDesc:  { fontSize: '.7rem', color: '#64748b', marginTop: 3, lineHeight: 1.5 },
 
   infoBanner: {
     display: 'flex', alignItems: 'center', gap: 8,
@@ -344,7 +344,7 @@ const s = {
     padding: '0 0 10px', borderBottom: '1px solid #f1f5f9',
     gap: 8,
   },
-  th: { fontSize: '.72rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.04em' },
+  th: { fontSize: '.72rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.04em' },
   trow: {
     display: 'grid',
     gridTemplateColumns: '120px 110px 100px 1fr 140px 130px 150px',
@@ -353,7 +353,7 @@ const s = {
   td:      { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
   caseId:  { fontSize: '.8rem', fontWeight: 500, color: '#0f1117', fontFamily: 'monospace' },
   tdText:  { fontSize: '.8rem', color: '#0f1117' },
-  tdMuted: { fontSize: '.78rem', color: '#94a3b8' },
+  tdMuted: { fontSize: '.78rem', color: '#64748b' },
   followBtn: {
     padding: '6px 12px', background: '#fff',
     border: '1px solid #e8ecf0', borderRadius: 7,

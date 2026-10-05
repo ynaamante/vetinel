@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Topbar from '../components/Topbar';
+import StatusIndicator from '../components/StatusIndicator';
 import { Icons } from '../icons';
 import { canExportFeature, canInteractWithFeature, canViewFeature } from '../utils/permissionUtils';
 
@@ -120,7 +121,7 @@ export function DataSyncPage({ user }) {
                 style={{
                   ...s.changeLink,
                   opacity: canChangeInterval ? 1 : 0.45,
-                  color: canChangeInterval ? '#1d4ed8' : '#94a3b8',
+                  color: canChangeInterval ? '#07866a' : '#64748b',
                   pointerEvents: canChangeInterval ? 'auto' : 'none',
                 }}
                 onClick={(e) => {
@@ -153,7 +154,7 @@ export function DataSyncPage({ user }) {
                 ...s.manualBtn,
                 opacity: canManualSync ? (manualSync ? 0.7 : 1) : 0.65,
                 background: canManualSync ? '#fff' : '#f8fafc',
-                color: canManualSync ? '#0f1117' : '#94a3b8',
+                color: canManualSync ? '#0f1117' : '#64748b',
                 border: canManualSync ? '1px solid #e8ecf0' : '1px solid #cbd5e1',
                 cursor: canManualSync ? 'pointer' : 'not-allowed',
               }}
@@ -225,7 +226,7 @@ export function DataSyncPage({ user }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {row.expandable && (
                     <span style={{
-                      width: 14, height: 14, display: 'flex', color: '#94a3b8',
+                      width: 14, height: 14, display: 'flex', color: '#64748b',
                       transform: expanded === i ? 'rotate(90deg)' : 'none',
                       transition: 'transform .15s',
                     }}>
@@ -277,21 +278,7 @@ export function DataSyncPage({ user }) {
 
 /* ── STATUS BADGE ── */
 function StatusBadge({ status }) {
-  const cfg = {
-    success: { bg: '#16a34a', label: 'SUCCESS' },
-    failed:  { bg: '#dc2626', label: 'FAILED'  },
-    pending: { bg: '#f59e0b', label: 'PENDING' },
-  }[status];
-  return (
-    <span style={{
-      display: 'inline-block', padding: '3px 10px',
-      background: cfg.bg, color: '#fff',
-      fontSize: '.68rem', fontWeight: 700,
-      borderRadius: 5, letterSpacing: '.05em',
-    }}>
-      {cfg.label}
-    </span>
-  );
+  return <StatusIndicator status={status} />;
 }
 
 /* ── STYLES ── */
@@ -305,10 +292,10 @@ const s = {
     borderRadius: 14, padding: '20px 22px',
   },
   statLabel:  { fontSize: '.78rem', color: '#64748b' },
-  statVal:    { fontFamily: "'Syne', sans-serif", fontSize: '1.9rem', fontWeight: 700, letterSpacing: '-.03em', marginTop: 8 },
-  statSub:    { fontSize: '.72rem', color: '#94a3b8', marginTop: 4 },
+  statVal:    { fontFamily: "'DM Sans', sans-serif", fontSize: '1.9rem', fontWeight: 700, letterSpacing: '-.03em', marginTop: 8 },
+  statSub:    { fontSize: '.72rem', color: '#64748b', marginTop: 4 },
   activeDot:  { width: 9, height: 9, borderRadius: '50%', background: '#16a34a', flexShrink: 0 },
-  activeText: { fontFamily: "'Syne', sans-serif", fontSize: '1.4rem', fontWeight: 700, color: '#16a34a', letterSpacing: '-.01em' },
+  activeText: { fontFamily: "'DM Sans', sans-serif", fontSize: '1.4rem', fontWeight: 700, color: '#16a34a', letterSpacing: '-.01em' },
 
   card: {
     background: '#fff', border: '1px solid #e8ecf0',
@@ -321,8 +308,8 @@ const s = {
     paddingTop: 14, paddingBottom: 14,
   },
   controlLabel: { fontSize: '.82rem', color: '#0f1117', marginBottom: 4 },
-  controlVal:   { fontFamily: "'Syne', sans-serif", fontSize: '1rem', fontWeight: 600, color: '#0f1117' },
-  changeLink:   { fontSize: '.75rem', color: '#1d4ed8', textDecoration: 'none' },
+  controlVal:   { fontFamily: "'DM Sans', sans-serif", fontSize: '1rem', fontWeight: 600, color: '#0f1117' },
+  changeLink:   { fontSize: '.75rem', color: '#07866a', textDecoration: 'none' },
   divider:      { height: 1, background: '#f1f5f9' },
 
   toggle: {
@@ -361,7 +348,7 @@ const s = {
     display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 130px',
     paddingBottom: 10, borderBottom: '1px solid #f1f5f9',
   },
-  th: { fontSize: '.72rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.04em' },
+  th: { fontSize: '.72rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.04em' },
   tableRow: {
     display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 130px',
     padding: '12px 0', alignItems: 'center',

@@ -5,7 +5,15 @@ const audit = require('../utils/audit');
 
 exports.list = async (req, res, next) => {
   try {
-    const users = await userModel.getAll();
+    const explicitClinicId = req.query.clinic_id ? parseInt(req.query.clinic_id, 10) : null;
+    const userClinicId = req.user && req.user.clinic_id ? parseInt(req.user.clinic_id, 10) : null;
+    let clinicId = userClinicId || null;
+
+    if (explicitClinicId && req.user && req.user.role === 'super_admin') {
+      clinicId = explicitClinicId;
+    }
+
+    const users = await userModel.getAll(clinicId);
     res.json(users);
   } catch (e) {
     next(e);
@@ -15,8 +23,9 @@ exports.list = async (req, res, next) => {
 exports.create = async (req, res, next) => {
   try {
     const { name, email, password, clinic_id, clinic_name, role_id, role_name } = req.body;
+    const normalizedEmail = String(email || '').trim();
 
-    if (!name || !email || !password) {
+    if (!name || !normalizedEmail || !password) {
       return res.status(400).json({ error: 'name, email and password required' });
     }
 
@@ -25,15 +34,20 @@ exports.create = async (req, res, next) => {
       if (!clinic_name) {
         return res.status(400).json({ error: 'clinic_id or clinic_name is required' });
       }
+
       const clinicResult = await db.query('SELECT id FROM clinics WHERE name = $1', [clinic_name]);
       if (clinicResult.rows.length === 0) {
-        return res.status(400).json({ error: 'Clinic must be created first before assigning a role to the user' });
+        return res.status(400).json({
+          error: 'Clinic must be created first before assigning a role to the user',
+        });
       }
       resolvedClinicId = clinicResult.rows[0].id;
     } else {
       const clinicResult = await db.query('SELECT id FROM clinics WHERE id = $1', [resolvedClinicId]);
       if (clinicResult.rows.length === 0) {
-        return res.status(400).json({ error: 'Clinic not found. Create the clinic first before assigning a user to it.' });
+        return res.status(400).json({
+          error: 'Clinic not found. Create the clinic first before assigning a user to it.',
+        });
       }
     }
 
@@ -42,7 +56,11 @@ exports.create = async (req, res, next) => {
       if (!role_name) {
         return res.status(400).json({ error: 'role_id or role_name is required' });
       }
-      const roleResult = await db.query('SELECT id FROM roles WHERE lower(name) = lower($1) LIMIT 1', [role_name]);
+
+      const roleResult = await db.query(
+        'SELECT id FROM roles WHERE lower(name) = lower($1) LIMIT 1',
+        [role_name]
+      );
       if (roleResult.rows.length === 0) {
         return res.status(400).json({ error: 'Role does not exist. Please create the role before assigning it.' });
       }
@@ -50,18 +68,24 @@ exports.create = async (req, res, next) => {
     } else {
       const roleResult = await db.query('SELECT id FROM roles WHERE id = $1', [resolvedRoleId]);
       if (roleResult.rows.length === 0) {
-        return res.status(400).json({ error: 'Role not found. Create the role first before assigning it.' });
+        return res.status(400).json({ error: 'Role not found. Create the role before assigning it.' });
       }
+    }
+
+    const selectedRole = await db.query('SELECT name FROM roles WHERE id = $1', [resolvedRoleId]);
+    const selectedRoleName = String(selectedRole.rows[0]?.name || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (selectedRoleName === 'owner' || selectedRoleName === 'clinic_owner' || selectedRoleName === 'super_admin') {
+      return res.status(400).json({ error: 'Staff accounts must use an approved staff role' });
     }
 
     const user = await userModel.create({
       name,
-      email,
+      email: normalizedEmail,
       password,
       clinic_id: resolvedClinicId,
       role_id: resolvedRoleId,
     });
-    // log audit (fire-and-forget)
+
     const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
     audit.logAudit({
       user_id: auditUserId,
@@ -71,7 +95,46 @@ exports.create = async (req, res, next) => {
       new_data: user,
       ip_address: req.ip || req.connection.remoteAddress,
     });
+
     res.status(201).json(user);
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'email already exists' });
+    next(e);
+  }
+};
+
+exports.register = async (req, res, next) => {
+  try {
+    const { name, email, password, role_name } = req.body;
+
+    if (!name || !email || !password || String(password).length < 8) {
+      return res.status(400).json({
+        error: 'Name, email, and a password of at least 8 characters are required',
+      });
+    }
+
+    let roleId = null;
+    if (role_name === 'clinic_owner') {
+      const roleResult = await db.query(
+        'SELECT id FROM roles WHERE lower(name) = $1 LIMIT 1',
+        ['clinic_owner']
+      );
+      roleId = roleResult.rows[0] ? roleResult.rows[0].id : null;
+    }
+
+    const user = await userModel.create({
+      name: String(name).trim(),
+      email: String(email).trim().toLowerCase(),
+      password,
+      role_id: roleId,
+    });
+
+    res.status(201).json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      message: 'Account created successfully',
+    });
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'email already exists' });
     next(e);
@@ -82,7 +145,11 @@ exports.update = async (req, res, next) => {
   try {
     const { id } = req.params;
     const numericId = parseInt(id, 10);
-    if (Number.isNaN(numericId)) return res.status(400).json({ error: 'invalid user id' });
+
+    if (Number.isNaN(numericId)) {
+      return res.status(400).json({ error: 'invalid user id' });
+    }
+
     const { name, email, clinic_id, clinic_name, role_id, role_name, is_active, password } = req.body;
 
     const userResult = await db.query('SELECT * FROM users WHERE id = $1', [numericId]);
@@ -94,16 +161,23 @@ exports.update = async (req, res, next) => {
     if (!resolvedClinicId && clinic_name) {
       const clinicResult = await db.query('SELECT id FROM clinics WHERE name = $1', [clinic_name]);
       if (clinicResult.rows.length === 0) {
-        return res.status(400).json({ error: 'Clinic must be created first before assigning a role to the user' });
+        return res.status(400).json({
+          error: 'Clinic must be created first before assigning a role to the user',
+        });
       }
       resolvedClinicId = clinicResult.rows[0].id;
     }
 
     let resolvedRoleId = role_id;
     if (!resolvedRoleId && role_name) {
-      const roleResult = await db.query('SELECT id FROM roles WHERE lower(name) = lower($1) LIMIT 1', [role_name]);
+      const roleResult = await db.query(
+        'SELECT id FROM roles WHERE lower(name) = lower($1) LIMIT 1',
+        [role_name]
+      );
       if (roleResult.rows.length === 0) {
-        return res.status(400).json({ error: 'Role does not exist. Please create the role before assigning it.' });
+        return res.status(400).json({
+          error: 'Role does not exist. Please create the role before assigning it.',
+        });
       }
       resolvedRoleId = roleResult.rows[0].id;
     }
@@ -147,7 +221,6 @@ exports.update = async (req, res, next) => {
       [numericId]
     );
 
-    // audit: record change
     const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
     audit.logAudit({
       user_id: auditUserId,
@@ -170,7 +243,11 @@ exports.delete = async (req, res, next) => {
   try {
     const { id } = req.params;
     const numericId = parseInt(id, 10);
-    if (Number.isNaN(numericId)) return res.status(400).json({ error: 'invalid user id' });
+
+    if (Number.isNaN(numericId)) {
+      return res.status(400).json({ error: 'invalid user id' });
+    }
+
     const before = await db.query('SELECT * FROM users WHERE id = $1', [numericId]);
     const result = await db.query(
       `UPDATE users
@@ -207,7 +284,11 @@ exports.restore = async (req, res, next) => {
   try {
     const { id } = req.params;
     const numericId = parseInt(id, 10);
-    if (Number.isNaN(numericId)) return res.status(400).json({ error: 'invalid user id' });
+
+    if (Number.isNaN(numericId)) {
+      return res.status(400).json({ error: 'invalid user id' });
+    }
+
     const before = await db.query('SELECT * FROM users WHERE id = $1', [numericId]);
     const result = await db.query(
       `UPDATE users
@@ -260,12 +341,18 @@ exports.permanentDelete = async (req, res, next) => {
   try {
     const { id } = req.params;
     const numericId = parseInt(id, 10);
-    if (Number.isNaN(numericId)) return res.status(400).json({ error: 'invalid user id' });
+
+    if (Number.isNaN(numericId)) {
+      return res.status(400).json({ error: 'invalid user id' });
+    }
+
     const before = await db.query('SELECT * FROM users WHERE id = $1', [numericId]);
     const result = await db.query('DELETE FROM users WHERE id = $1 RETURNING id', [numericId]);
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
+
     const auditUserId = req.user && req.user.id ? parseInt(req.user.id, 10) : null;
     audit.logAudit({
       user_id: auditUserId,
@@ -288,15 +375,28 @@ const auth = require('../middleware/auth');
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+    const normalizedEmail = String(email || '').trim();
 
-    const user = await userModel.getByEmail(email);
-    if (!user || user.is_active === false) return res.status(401).json({ error: 'Invalid email or password' });
+    if (!normalizedEmail || !password) {
+      return res.status(400).json({ error: 'email and password required' });
+    }
+
+    const user = await userModel.getByEmail(normalizedEmail);
+    if (!user || user.is_active === false) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
 
     const isValid = user.password_hash && await bcrypt.compare(password, user.password_hash);
-    if (!isValid) return res.status(401).json({ error: 'Invalid email or password' });
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
 
-    const resolvedRole = (user.role_name || user.role) || (process.env.SUPERADMIN_EMAIL && user.email === process.env.SUPERADMIN_EMAIL ? 'super_admin' : 'user');
+    const resolvedRole =
+      (user.role_name || user.role) ||
+      (process.env.SUPERADMIN_EMAIL && user.email === process.env.SUPERADMIN_EMAIL
+        ? 'super_admin'
+        : 'user');
+
     const token = auth.signUserToken({
       id: user.id,
       name: user.name,
@@ -304,6 +404,7 @@ exports.login = async (req, res, next) => {
       role: resolvedRole,
       clinic_id: user.clinic_id,
       clinic_name: user.clinic_name,
+      must_change_password: user.must_change_password === true,
       exp: Date.now() + 1000 * 60 * 60 * 24,
       iat: Date.now(),
     });
@@ -315,6 +416,7 @@ exports.login = async (req, res, next) => {
       role: resolvedRole,
       clinic_id: user.clinic_id,
       clinic_name: user.clinic_name,
+      must_change_password: user.must_change_password === true,
       token,
     });
   } catch (e) {
@@ -322,9 +424,39 @@ exports.login = async (req, res, next) => {
   }
 };
 
+exports.changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword || String(newPassword).length < 8) {
+      return res.status(400).json({
+        error: 'Current password and a new password of at least 8 characters are required',
+      });
+    }
+
+    const user = await userModel.getByEmail(req.user.email);
+    if (!user || !(await bcrypt.compare(currentPassword, user.password_hash))) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await db.query(
+      'UPDATE users SET password_hash = $1, must_change_password = false WHERE id = $2',
+      [passwordHash, req.user.id]
+    );
+
+    res.json({ success: true });
+  } catch (e) {
+    next(e);
+  }
+};
+
 exports.me = async (req, res, next) => {
   try {
-    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     res.json({
       id: req.user.id,
       name: req.user.name,

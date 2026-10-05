@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 
 const authSecret = process.env.AUTH_SECRET || process.env.API_TOKEN || 'dev_auth_secret';
-const serverStartedAt = Date.now();
 
 function base64UrlEncode(value) {
   return Buffer.from(value, 'utf8').toString('base64url');
@@ -45,12 +44,34 @@ function verifyToken(token) {
   }
 
   if (payload.exp && Date.now() > payload.exp) return null;
-  if (payload.iat && payload.iat < serverStartedAt) return null;
   return payload;
 }
 
 module.exports = {
-  optional: (req, res, next) => next(),
+  optional: (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return next();
+    const token = authHeader.slice(7);
+
+    if (process.env.API_TOKEN && token === process.env.API_TOKEN) {
+      req.user = { id: null, role: 'super_admin' };
+      return next();
+    }
+
+    const payload = verifyToken(token);
+    if (!payload) return next();
+
+    req.user = {
+      id: payload.id,
+      name: payload.name,
+      email: payload.email,
+      role: payload.role,
+      clinic_id: payload.clinic_id,
+      clinic_name: payload.clinic_name,
+    };
+    next();
+  },
+
   required: (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -80,10 +101,12 @@ module.exports = {
     console.log('auth.required: user token valid', { userId: req.user.id, role: req.user.role });
     next();
   },
+
   superAdmin: (req, res, next) => {
     const role = req.user && req.user.role ? req.user.role : null;
     if (role === 'super_admin') return next();
     return res.status(403).json({ error: 'Forbidden' });
   },
+
   signUserToken: (payload) => signPayload(payload),
 };
